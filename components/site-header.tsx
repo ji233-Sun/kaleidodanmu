@@ -8,6 +8,8 @@ const LINKS = [
   { href: "/", label: "创作" },
   { href: "/mine", label: "我的万花筒" },
   { href: "/square", label: "万花筒广场" },
+  // mock 当前登录用户的主页，接入后端后替换为会话用户
+  { href: "/u/碎镜师傅", label: "个人主页" },
 ];
 
 export function SiteHeader() {
@@ -22,7 +24,12 @@ export function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           {LINKS.map((l) => {
-            const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+            const active =
+              l.href === "/"
+                ? pathname === "/"
+                : l.href.startsWith("/u/")
+                  ? pathname.startsWith("/u/")
+                  : pathname.startsWith(l.href);
             return (
               <Link
                 key={l.href}

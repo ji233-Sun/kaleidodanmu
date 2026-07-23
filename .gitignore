@@ -45,3 +45,5 @@ next-env.d.ts
 
 # build output (tsup CLI 产物)
 /dist
+
+public/*.mp4
