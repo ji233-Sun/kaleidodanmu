@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "kaleido": "dist/cli/index.js"
+    "kdanmu": "dist/cli/index.js"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "build:cli": "tsup",
-    "kaleido": "node dist/cli/index.js",
+    "kdanmu": "node dist/cli/index.js",
     "start": "next start",
     "lint": "eslint"
   },
