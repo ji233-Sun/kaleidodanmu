@@ -1,10 +1,10 @@
 // Kaleido CLI 入口。
 // 由 tsup 编译为 dist/cli/index.js（CJS + shebang），经根 package.json 的 bin
 // 注册为 `kaleido` 命令。
-// 构建后用：node dist/cli/index.js --version，或 pnpm exec kaleido --version。
+// 构建后用：node dist/cli/index.js --version，或 pnpm kaleido --version。
 
 import { createCommand } from 'commander'
-import pkg from '../../package.json'
+import pkg from '../package.json'
 
 const program = createCommand()
 
