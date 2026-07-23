@@ -42,3 +42,6 @@ next-env.d.ts
 
 # data
 /data
+
+# build output (tsup CLI 产物)
+/dist
