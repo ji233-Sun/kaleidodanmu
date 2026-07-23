@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server'
+import { handleApiError, requireUser } from '@/server/utils/http'
 import { EffectService } from '@/server/services/effect.service'
+import { CreateEffectSchema } from '@/types'
 
-// 经 service → repository → data-source 分层访问数据库。
-// POST 创建 / 鉴权 / 版本指针管理在后续阶段补齐。
-export async function GET() {
-  const effects = await EffectService.list()
-  return NextResponse.json({ effects })
+export async function GET(req: Request) {
+  try {
+    const user = await requireUser(req)
+    const effects = await EffectService.list(user.id)
+    return NextResponse.json({ effects })
+  } catch (e) {
+    return handleApiError(e)
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser(req)
+    const body = CreateEffectSchema.parse(await req.json())
+    const effect = await EffectService.create({ ownerId: user.id, ...body })
+    return NextResponse.json({ effect }, { status: 201 })
+  } catch (e) {
+    return handleApiError(e)
+  }
 }

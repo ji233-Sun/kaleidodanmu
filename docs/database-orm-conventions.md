@@ -303,7 +303,7 @@ export class AppSetting {
 
 ## 8. 分层访问：Repository / Service / Route
 
-数据访问分三层，自下而上：`DataSource` → `Repository` → `Service` → `Route Handler`。上层不跨层调用，避免业务逻辑散落到路由里。
+数据访问分三层，自下而上：`DataSource` → `Repository` → `Service` → `Route Handler`。上层不跨层调用，避免业务逻辑散落到路由里。请求/响应的 Zod schema 与 DTO 放在 `types/`（如 `CreateEffectSchema` / `EffectDto`），service、route、前端共用一份。
 
 **Repository**（`server/repositories/*.repository.ts`）——封装单表的读写，唯一允许接触 `AppDataSource.getRepository` 的地方：
 
@@ -315,8 +315,9 @@ import { Effect } from '@/server/database/entities/effect.entity'
 const repo = () => AppDataSource.getRepository(Effect)
 
 export const EffectRepository = {
-  findAll: () => repo().find({ order: { createdAt: 'DESC' } }),
-  findById: (id: number) => repo().findOneBy({ id }),
+  findAllByOwner: (ownerId: number) =>
+    repo().find({ where: { ownerId }, order: { createdAt: 'DESC' } }),
+  findByIdOwned: (id: number, ownerId: number) => repo().findOneBy({ id, ownerId }),
   findBySlug: (slug: string) => repo().findOneBy({ slug }),
   create: (data: Pick<Effect, 'ownerId' | 'slug' | 'name'>) =>
     repo().save(repo().create(data)),
@@ -327,37 +328,47 @@ export const EffectRepository = {
 
 ```ts
 // server/services/effect.service.ts
+import { HttpError } from '@/server/utils/errors'
 import { EffectRepository } from '@/server/repositories/effect.repository'
+import type { EffectDto, CreateEffectRequest } from '@/types'
+import type { Effect } from '@/server/database/entities/effect.entity'
+
+function toEffectDto(e: Effect): EffectDto {
+  // 实体 → DTO（如 createdAt: e.createdAt.toISOString()）
+  return { /* ...映射各字段... */ } as EffectDto
+}
 
 export const EffectService = {
-  async list() {
-    return EffectRepository.findAll()
+  async list(ownerId: number) {
+    return (await EffectRepository.findAllByOwner(ownerId)).map(toEffectDto)
   },
-  async create(input: { ownerId: number; slug: string; name: string }) {
+  async create(input: CreateEffectRequest & { ownerId: number }) {
     if (await EffectRepository.findBySlug(input.slug)) {
       throw new HttpError(409, 'slug_already_taken', 'Slug already taken')
     }
-    return EffectRepository.create(input)
+    return toEffectDto(await EffectRepository.create(input))
   },
-}
-
-export class HttpError extends Error {
-  constructor(public status: number, public code: string, message: string) {
-    super(message)
-  }
 }
 ```
 
-**Route Handler**——只做 HTTP 编排（解析请求、调 Service、组装响应）：
+**Route Handler**——只做 HTTP 编排：鉴权（`requireUser`）、用 `types/` 的 schema 校验入参、调 Service、`handleApiError` 兜底：
 
 ```ts
 // app/api/effects/route.ts
 import { NextResponse } from 'next/server'
+import { requireUser, handleApiError } from '@/server/utils/http'
 import { EffectService } from '@/server/services/effect.service'
+import { CreateEffectSchema } from '@/types'
 
-export async function GET() {
-  const effects = await EffectService.list()
-  return NextResponse.json({ effects })
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser(req)
+    const body = CreateEffectSchema.parse(await req.json())
+    const effect = await EffectService.create({ ownerId: user.id, ...body })
+    return NextResponse.json({ effect }, { status: 201 })
+  } catch (e) {
+    return handleApiError(e)
+  }
 }
 ```
 
