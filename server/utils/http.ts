@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { HttpError } from './errors'
 import { readCookie, SESSION_COOKIE } from './cookies'
-import { SessionRepository } from '@/server/repositories/session.repository'
+import { verifySessionToken } from './jwt'
 import { UserRepository } from '@/server/repositories/user.repository'
 import type { User } from '@/server/database/entities/user.entity'
 
@@ -14,13 +14,13 @@ export function apiError(status: number, code: string, message: string): NextRes
   return NextResponse.json({ error: { code, message } }, { status })
 }
 
-/** 读取会话 cookie 解析当前用户；未登录或会话过期返回 null。 */
+/** 读取会话 cookie（JWT）解析当前用户；未登录、签名无效或过期返回 null。 */
 export async function getCurrentUser(req: Request): Promise<User | null> {
   const token = readCookie(req, SESSION_COOKIE)
   if (!token) return null
-  const session = await SessionRepository.findByToken(token)
-  if (!session || session.expiresAt.getTime() < Date.now()) return null
-  return UserRepository.findById(session.userId)
+  const claims = verifySessionToken(token)
+  if (!claims) return null
+  return UserRepository.findById(claims.sub)
 }
 
 /** 需要登录：未登录抛 401，由 handleApiError 捕获。 */

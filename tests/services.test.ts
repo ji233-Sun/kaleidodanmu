@@ -41,10 +41,10 @@ describe('services', () => {
         status: 401,
       })
     })
-    it('logout 删除会话', async () => {
-      const { token } = await b.AuthService.register(`${uniq('lo')}@test.local`, '12345678')
-      await b.AuthService.logout(token)
-      expect(await b.SessionRepository.findByToken(token)).toBe(null)
+    it('签发的 token 是合法 JWT 且可校验出用户', async () => {
+      const { user, token } = await b.AuthService.register(`${uniq('lo')}@test.local`, '12345678')
+      const claims = b.verifySessionToken(token)
+      expect(claims?.sub).toBe(user.id)
     })
   })
 

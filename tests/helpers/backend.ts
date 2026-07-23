@@ -30,6 +30,7 @@ export async function useBackend() {
     tokenRepo,
     cryptoMod,
     httpMod,
+    jwtMod,
   ] = await Promise.all([
     import('@/server/services/auth.service'),
     import('@/server/services/effect.service'),
@@ -46,6 +47,7 @@ export async function useBackend() {
     import('@/server/repositories/apiToken.repository'),
     import('@/server/utils/crypto'),
     import('@/server/utils/http'),
+    import('@/server/utils/jwt'),
   ])
 
   const cleanup = async () => {
@@ -85,6 +87,8 @@ export async function useBackend() {
     clearSessionCookie: httpMod.clearSessionCookie,
     SESSION_COOKIE: httpMod.SESSION_COOKIE,
     HttpError: httpMod.HttpError,
+    signSessionToken: jwtMod.signSessionToken,
+    verifySessionToken: jwtMod.verifySessionToken,
   }
 }
 
