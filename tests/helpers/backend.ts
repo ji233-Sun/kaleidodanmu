@@ -28,6 +28,7 @@ export async function useBackend() {
     draftRepo,
     settingRepo,
     tokenRepo,
+    adeSessionRepo,
     cryptoMod,
     httpMod,
     jwtMod,
@@ -45,6 +46,7 @@ export async function useBackend() {
     import('@/server/repositories/draft.repository'),
     import('@/server/repositories/appSetting.repository'),
     import('@/server/repositories/apiToken.repository'),
+    import('@/server/repositories/adeSession.repository'),
     import('@/server/utils/crypto'),
     import('@/server/utils/http'),
     import('@/server/utils/jwt'),
@@ -56,7 +58,6 @@ export async function useBackend() {
   }
 
   return {
-    dir,
     cleanup,
     AppDataSource: db.AppDataSource,
     AuthService: auth.AuthService,
@@ -76,6 +77,7 @@ export async function useBackend() {
     DraftRepository: draftRepo.DraftRepository,
     AppSettingRepository: settingRepo.AppSettingRepository,
     ApiTokenRepository: tokenRepo.ApiTokenRepository,
+    AdeSessionRepository: adeSessionRepo.AdeSessionRepository,
     hashPassword: cryptoMod.hashPassword,
     verifyPassword: cryptoMod.verifyPassword,
     randomToken: cryptoMod.randomToken,

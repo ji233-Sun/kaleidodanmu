@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { HttpError } from './errors'
 import { readCookie, SESSION_COOKIE } from './cookies'
 import { verifySessionToken } from './jwt'
 import { UserRepository } from '@/server/repositories/user.repository'
+import { ApiTokenRepository } from '@/server/repositories/apiToken.repository'
 import type { User } from '@/server/database/entities/user.entity'
 
 export { SESSION_COOKIE, readCookie, setSessionCookie, clearSessionCookie } from './cookies'
@@ -14,13 +16,26 @@ export function apiError(status: number, code: string, message: string): NextRes
   return NextResponse.json({ error: { code, message } }, { status })
 }
 
-/** 读取会话 cookie（JWT）解析当前用户；未登录、签名无效或过期返回 null。 */
+/**
+ * 解析当前用户：优先会话 cookie（JWT），其次 `Authorization: Bearer kdt_*`（CLI 的 API token）。
+ * 未登录、签名无效、令牌吊销或过期均返回 null。
+ */
 export async function getCurrentUser(req: Request): Promise<User | null> {
   const token = readCookie(req, SESSION_COOKIE)
-  if (!token) return null
-  const claims = verifySessionToken(token)
-  if (!claims) return null
-  return UserRepository.findById(claims.sub)
+  if (token) {
+    const claims = verifySessionToken(token)
+    if (claims) return UserRepository.findById(claims.sub)
+  }
+
+  const bearer = req.headers.get('authorization')
+  if (bearer?.startsWith('Bearer kdt_')) {
+    const tokenHash = createHash('sha256').update(bearer.slice('Bearer '.length)).digest('hex')
+    const apiToken = await ApiTokenRepository.findByTokenHash(tokenHash)
+    if (!apiToken || apiToken.revokedAt) return null
+    if (apiToken.expiresAt && apiToken.expiresAt.getTime() <= Date.now()) return null
+    return UserRepository.findById(apiToken.userId)
+  }
+  return null
 }
 
 /** 需要登录：未登录抛 401，由 handleApiError 捕获。 */

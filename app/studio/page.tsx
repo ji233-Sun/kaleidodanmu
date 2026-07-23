@@ -73,16 +73,20 @@ function StudioInner() {
   const effect = activeId ? (effects.find((e) => e.id === activeId) ?? null) : null;
 
   // Agent 产出新配方：创建或保存新版本
-  const handleApply = (recipe: Recipe, name?: string) => {
+  const handleApply = (recipe: Recipe, name?: string, _changes?: string[], entrySource?: string) => {
     const now = Date.now();
     if (activeId) {
       const cur = getEffect(activeId);
       if (cur) {
         // 配方未变化（如二创初始化回放）时不 bump 版本
-        const unchanged = JSON.stringify(cur.recipe) === JSON.stringify(recipe);
+        const nextEntrySource = entrySource ?? cur.entrySource;
+        const unchanged =
+          JSON.stringify(cur.recipe) === JSON.stringify(recipe) &&
+          cur.entrySource === nextEntrySource;
         upsertEffect({
           ...cur,
           recipe,
+          entrySource: nextEntrySource,
           name: name ?? cur.name,
           version: unchanged ? cur.version : cur.version + 1,
           updatedAt: now,
@@ -96,6 +100,7 @@ function StudioInner() {
       name: name ?? "未命名万花筒",
       prompt: prompt ?? "",
       recipe,
+      entrySource,
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -137,6 +142,7 @@ function StudioInner() {
         <AgentChat
           key={chatKey}
           recipe={effect?.recipe ?? null}
+          entrySource={effect?.entrySource}
           autoPrompt={prompt ?? (forkItem ? forkItem.prompt : undefined)}
           creationName={forkItem ? `${forkItem.name} · 二创` : undefined}
           creationRecipe={forkItem?.recipe}
@@ -145,6 +151,7 @@ function StudioInner() {
               ? `已加载「${effect.name}」（当前 v${effect.version}）。\n\n原始需求：「${effect.prompt}」\n\n直接告诉我你想怎么调整，比如「碎片再多一点」「换成蓝色系」。`
               : undefined
           }
+          targetKey={chatKey}
           onApply={handleApply}
           className="min-h-0 flex-1"
         />
@@ -184,7 +191,12 @@ function StudioInner() {
           </div>
 
           {/* 播放器预览 */}
-          <KaleidoPlayer recipe={recipe} seed={seed} title={effect?.name ?? "万花筒预览"} />
+          <KaleidoPlayer
+            recipe={recipe}
+            effectSource={effect?.entrySource}
+            seed={seed}
+            title={effect?.name ?? "万花筒预览"}
+          />
 
           {/* 配方参数 */}
           <div className="rounded-xl border border-line bg-card p-4">

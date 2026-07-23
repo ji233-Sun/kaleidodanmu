@@ -14,22 +14,25 @@ const LINKS = [
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, logout } = useSession();
+  const runtimePage = pathname === "/effect-runtime";
+  const { user, loading, logout } = useSession(!runtimePage);
 
   const handleLogout = async () => {
     await logout();
     router.push("/");
   };
 
+  if (runtimePage) return null;
+
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-card/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-8 px-6">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:h-14 sm:flex-nowrap sm:gap-8 sm:px-6 sm:py-0">
+        <Link href="/" className="flex min-w-0 items-center gap-2 whitespace-nowrap">
           <span className="h-5 w-5 rotate-45 rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink shadow-[0_0_14px_rgba(124,92,252,.5)]" />
           <span className="text-lg font-bold tracking-tight text-ink">万花筒弹幕</span>
           <span className="hidden text-xs font-medium text-ink-3 sm:inline">KALEIDO</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto sm:justify-start">
           {LINKS.map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
@@ -38,7 +41,7 @@ export function SiteHeader() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 transition-colors",
+                  "rounded-lg px-2.5 py-1.5 transition-colors sm:px-3",
                   active ? "bg-bili-pink-light font-medium text-bili-pink" : "text-ink-2 hover:text-bili-pink",
                 )}
               >
@@ -47,7 +50,7 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-2 text-sm">
+        <div className="ml-auto flex flex-none items-center gap-1 text-sm sm:gap-2">
           {loading ? null : user ? (
             <>
               <Link

@@ -128,4 +128,17 @@ describe('repositories', () => {
       expect(got[0].revokedAt).toBeInstanceOf(Date)
     })
   })
-})
+
+  describe('AdeSessionRepository', () => {
+    it('upsert 首次插入、再次更新同一行；按 owner 隔离', async () => {
+      const a = await b.UserRepository.create({ email: `${uniq('sa')}@test.local`, passwordHash: 'h' })
+      const c = await b.UserRepository.create({ email: `${uniq('sc')}@test.local`, passwordHash: 'h' })
+      const key = `studio-${uniq('k')}`
+      const s1 = await b.AdeSessionRepository.upsert({ ownerId: a.id, targetKey: key, payloadJson: '{"messages":[]}' })
+      const s2 = await b.AdeSessionRepository.upsert({ ownerId: a.id, targetKey: key, payloadJson: '{"messages":[{"role":"user","text":"hi"}]}' })
+      expect(s2.id).toBe(s1.id)
+      expect((await b.AdeSessionRepository.findOwned(a.id, key))?.payloadJson).toContain('"hi"')
+      expect(await b.AdeSessionRepository.findOwned(c.id, key)).toBeNull()
+    })
+  })
+ })

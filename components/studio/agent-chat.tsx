@@ -1,219 +1,307 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Recipe } from "@/lib/types";
-import type { AgentStep } from "@/lib/agent";
-import { buildCreationScript, buildRefineScript } from "@/lib/agent";
-import { recipeFromPrompt, refineRecipe } from "@/lib/recipes";
+import { BrowserEffectProject } from "@/lib/ade/project";
+import type { AdeAgentMessage, AdeAgentTurnResponse } from "@/lib/ade/protocol";
+import type { AdeSessionPayload } from "@/types";
+import { ApiError, apiFetch } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/cn";
 
-type Msg =
-  | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; streaming: boolean }
-  | {
-      id: number;
-      role: "tool";
-      tool: string;
-      args: string;
-      result: string;
-      status: "running" | "done";
-    };
+type ChatMsg = { role: "user"; text: string } | { role: "assistant"; text: string };
 
-let msgId = 0;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const MAX_AGENT_ROUNDS = 6;
+/** 服务端历史拉取的稳定键；同一会话在刷新前后保持一致。 */
+const SESSION_PATH = (targetKey: string) =>
+  `/api/ade/session/${encodeURIComponent(targetKey)}`;
+/** 连续两轮提示词完全相同时视为同一会话，跳过自动重放。 */
+function sameInstruction(a: string, b: string): boolean {
+  return a.trim() === b.trim();
+}
 
-/** Omit 默认不在联合类型上分发，这里需要分发版本 */
-type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+/** 把聊天记录压缩成发给 LLM 的 messages（首个 user 是当前指令，后续是历史摘要）。 */
+function buildTurnMessages(currentInstruction: string, history: ChatMsg[]): AdeAgentMessage[] {
+  const tail = history.slice(-MAX_AGENT_ROUNDS * 2);
+  return [
+    { role: "user", content: currentInstruction },
+    ...tail
+      .filter((m): m is { role: "assistant"; text: string } => m.role === "assistant" && m.text.length > 0)
+      .map((m) => ({ role: "assistant" as const, content: m.text, toolCalls: [] })),
+  ];
+}
 
 export function AgentChat({
   recipe,
+  entrySource,
   autoPrompt,
   creationName,
   creationRecipe,
   intro,
+  targetKey,
   onApply,
   className,
 }: {
-  /** 当前配方（迭代时基于它修改） */
   recipe: Recipe | null;
-  /** 首屏一句话：传入后自动执行创建脚本 */
+  entrySource?: string;
   autoPrompt?: string;
-  /** 指定创建产物（广场二创时复用原配方，缺省则按 prompt 推断） */
   creationName?: string;
   creationRecipe?: Recipe;
-  /** 开场提示（继续迭代已有万花筒时展示上下文） */
   intro?: string;
-  /** 脚本产出新配方时回调（父组件刷新预览/保存版本） */
-  onApply: (recipe: Recipe, name?: string, changes?: string[]) => void;
+  /** 用于服务端历史会话的稳定标识；同一会话在刷新前后保持一致。 */
+  targetKey: string;
+  onApply: (recipe: Recipe, name?: string, changes?: string[], entrySource?: string) => void;
   className?: string;
 }) {
-  const [msgs, setMsgs] = useState<Msg[]>(() =>
-    intro ? [{ id: ++msgId, role: "assistant", text: intro, streaming: false }] : [],
-  );
+  const { user, loading: sessionLoading } = useSession();
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadedTarget, setLoadedTarget] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef(false);
   const startedRef = useRef(false);
-  // 脚本执行期间需要最新的 recipe，但不需要触发重渲染
-  const recipeRef = useRef<Recipe | null>(recipe);
-  useEffect(() => {
-    recipeRef.current = recipe;
-  }, [recipe]);
+  const projectRef = useRef<BrowserEffectProject | null>(null);
+  const projectKeyRef = useRef("");
 
-  const push = useCallback((m: DistOmit<Msg, "id">) => {
-    const id = ++msgId;
-    setMsgs((prev) => [...prev, { ...m, id } as Msg]);
-    return id;
-  }, []);
-
-  const patch = useCallback((id: number, part: Partial<Msg>) => {
-    setMsgs((prev) => prev.map((m) => (m.id === id ? ({ ...m, ...part } as Msg) : m)));
-  }, []);
-
-  /* ---------- 脚本驱动器：模拟 coding agent 的“生成 → 校验 → 刷新预览” ---------- */
-  const runScript = useCallback(
-    async (steps: AgentStep[]) => {
-      setBusy(true);
-      cancelRef.current = false;
-      for (const step of steps) {
-        if (cancelRef.current) break;
-        if (step.type === "say") {
-          const id = push({ role: "assistant", text: "", streaming: true });
-          // 流式输出
-          for (let i = 0; i < step.text.length; i += 3) {
-            if (cancelRef.current) break;
-            patch(id, { text: step.text.slice(0, i + 3) });
-            await sleep(18);
-          }
-          patch(id, { text: step.text, streaming: false });
-          await sleep(250);
-        } else if (step.type === "tool") {
-          const id = push({
-            role: "tool",
-            tool: step.tool,
-            args: step.args,
-            result: "",
-            status: "running",
-          });
-          await sleep(step.duration ?? 800);
-          patch(id, { status: "done", result: step.result });
-          await sleep(200);
-        } else {
-          onApply(step.recipe, step.name, step.changes);
-        }
+  /** 把当前 msgs 与项目文件存到服务端；空快照也允许写（清空历史）。 */
+  const persist = useCallback(
+    async (nextMsgs: ChatMsg[], project: BrowserEffectProject | null) => {
+      if (!user) return;
+      const payload: AdeSessionPayload = {
+        messages: nextMsgs,
+        files: project
+          ? project.snapshotFiles()
+          : { "effect.json": "", "index.ts": "" },
+      };
+      try {
+        await apiFetch(SESSION_PATH(targetKey), { method: "PUT", json: { payload } });
+      } catch {
+        // 静默：保存失败不应阻塞用户继续对话；下次轮询时再覆盖。
       }
-      setBusy(false);
     },
-    [onApply, patch, push],
+    [targetKey, user],
   );
 
-  /* ---------- 首屏创建 ---------- */
-  useEffect(() => {
-    if (!autoPrompt || startedRef.current) return;
-    startedRef.current = true;
-    push({ role: "user", text: autoPrompt });
-    const inferred = creationRecipe
-      ? { name: creationName ?? "幻彩万花筒", recipe: creationRecipe }
-      : recipeFromPrompt(autoPrompt);
-    void runScript(buildCreationScript(autoPrompt, inferred.name, inferred.recipe));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrompt]);
+  /** 让 runAgent / send 都能复用的「推一条消息」工具。 */
+  const push = useCallback((m: ChatMsg) => setMsgs((prev) => [...prev, m]), []);
 
-  /* ---------- 用户迭代指令 ---------- */
+  const ensureProject = useCallback(
+    (currentRecipe: Recipe | null, currentEntrySource?: string) => {
+      const fingerprint = JSON.stringify([currentRecipe, currentEntrySource]);
+      if (!projectRef.current || projectKeyRef.current !== fingerprint) {
+        const project = new BrowserEffectProject();
+        project.hydrate(
+          creationName ?? "未命名万花筒",
+          currentRecipe ?? creationRecipe ?? {
+            symmetry: 6,
+            rotationSpeed: 0.16,
+            motion: "spiral",
+            palette: ["#00a1d6", "#fb7299", "#8b7cf6"],
+            shardScale: 1,
+            trail: 0.6,
+            density: 1,
+          },
+          currentEntrySource,
+        );
+        projectRef.current = project;
+        projectKeyRef.current = fingerprint;
+      }
+      return projectRef.current;
+    },
+    [creationName, creationRecipe],
+  );
+
+  const runAgent = useCallback(
+    async (instruction: string, currentRecipe: Recipe | null, currentEntrySource?: string) => {
+      if (!user) {
+        push({ role: "assistant", text: "登录后才能使用浏览器内 Kaleido ADE 创建或调整效果。" });
+        return;
+      }
+      setBusy(true);
+      const project = ensureProject(currentRecipe, currentEntrySource);
+      // 服务端只会保存 user/assistant 文本；toolCalls 仅用于本轮驱动 LLM。
+      const messages: AdeAgentMessage[] = buildTurnMessages(instruction, msgs);
+      try {
+        for (let round = 0; round < MAX_AGENT_ROUNDS; round += 1) {
+          const { message } = await apiFetch<AdeAgentTurnResponse>(
+            "/api/llm/proxy",
+            { method: "POST", json: { messages } },
+          );
+          if (message.content) push({ role: "assistant", text: message.content });
+          if (message.toolCalls.length === 0) return;
+          const assistantEntry: AdeAgentMessage = {
+            role: "assistant",
+            content: message.content,
+            toolCalls: message.toolCalls,
+            reasoningContent: message.reasoningContent,
+          };
+          messages.push(assistantEntry);
+          for (const call of message.toolCalls) {
+            const execution = project.execute(call);
+            if (execution.preview) {
+              onApply(
+                execution.preview.recipe,
+                execution.preview.name,
+                execution.preview.changes,
+                execution.preview.entrySource,
+              );
+              projectKeyRef.current = JSON.stringify([
+                execution.preview.recipe,
+                execution.preview.entrySource,
+              ]);
+            }
+            messages.push({
+              role: "tool",
+              toolCallId: call.id,
+              content: execution.result,
+            });
+          }
+        }
+        push({ role: "assistant", text: "本轮工具调用次数已达到上限；请继续描述下一步调整。" });
+      } catch (error) {
+        const text =
+          error instanceof ApiError && error.status === 401
+            ? "登录已失效，请重新登录后继续。"
+            : error instanceof Error
+              ? "Agent 暂时不可用：" + error.message
+              : "Agent 暂时不可用，请稍后重试。";
+        push({ role: "assistant", text });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [ensureProject, msgs, onApply, push, user],
+  );
+
+  // 首次挂载：拉取服务端历史，恢复 msgs 与工程文件。
+  const hydrated = !sessionLoading && (!user || loadedTarget === targetKey);
+  useEffect(() => {
+    if (sessionLoading || !user || loadedTarget === targetKey) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { session } = await apiFetch<{ session: { payload: AdeSessionPayload } | null }>(
+          SESSION_PATH(targetKey),
+        );
+        if (cancelled) return;
+        const restored = session?.payload.messages ?? [];
+        const files = session?.payload.files;
+        if (files && (files["effect.json"] || files["index.ts"])) {
+          const project = new BrowserEffectProject();
+          project.restoreFiles(files);
+          projectRef.current = project;
+        }
+        const seeded: ChatMsg[] = intro ? [{ role: "assistant", text: intro }, ...restored] : restored;
+        setMsgs(seeded);
+      } catch {
+        if (!cancelled) setMsgs(intro ? [{ role: "assistant", text: intro }] : []);
+      } finally {
+        if (!cancelled) setLoadedTarget(targetKey);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // intro 仅在首次拉取时使用，之后变化属外部 prop 漂移，可忽略。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedTarget, sessionLoading, user, targetKey]);
+
+  // 自动重放 autoPrompt：仅当历史里没有相同指令且未处于工作中。
+  useEffect(() => {
+    if (!hydrated || !autoPrompt || startedRef.current || sessionLoading || !user || busy) return;
+    if (msgs.some((m) => m.role === "user" && sameInstruction(m.text, autoPrompt))) return;
+    startedRef.current = true;
+    void Promise.resolve().then(() => {
+      push({ role: "user", text: autoPrompt });
+      return runAgent(autoPrompt, recipe, entrySource);
+    });
+  }, [autoPrompt, busy, entrySource, hydrated, msgs, push, recipe, runAgent, sessionLoading, user]);
+
+  // msgs 或工程变更时，debounce 写入服务端（600ms）。
+  const saveTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void persist(msgs, projectRef.current);
+    }, 600);
+    return () => {
+      if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    };
+  }, [hydrated, msgs, persist, user]);
+
   const send = useCallback(() => {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || busy || sessionLoading || !user) return;
     setInput("");
     push({ role: "user", text });
-    const base = recipeRef.current;
-    if (!base) {
-      const { name, recipe: r } = recipeFromPrompt(text);
-      void runScript(buildCreationScript(text, name, r));
-    } else {
-      const { recipe: next, changes } = refineRecipe(base, text);
-      void runScript(buildRefineScript(text, changes, next));
-    }
-  }, [input, busy, push, runScript]);
+    void runAgent(text, recipe, entrySource);
+  }, [busy, entrySource, input, push, recipe, runAgent, sessionLoading, user]);
 
-  /* ---------- 自动滚动 ---------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [msgs]);
+  }, [msgs, busy]);
+
+  const empty = msgs.length === 0 && !busy && hydrated;
+  const visibleMsgs = useMemo(() => msgs, [msgs]);
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      {/* 头部 */}
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
         <span className="flex h-5.5 w-5.5 items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
           K
         </span>
-        <span className="text-sm font-semibold text-ink">Kaleido Agent</span>
+        <span className="text-sm font-semibold text-ink">Kaleido ADE</span>
         <span className="rounded-full bg-bili-blue-light px-2 py-0.5 text-[11px] text-bili-blue">
-          浏览器内运行 · Mock
+          浏览器内 Agent
         </span>
-        {busy && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-ink-3">
-            <span className="h-3 w-3 animate-spin rounded-full border-2 border-bili-pink border-t-transparent" />
-            工作中…
-          </span>
-        )}
       </div>
-
-      {/* 消息流 */}
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {msgs.length === 0 && (
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        {empty && (
           <p className="pt-8 text-center text-sm text-ink-3">
-            描述你想要的弹幕效果，Agent 会生成并实时预览。
+            描述你想要的弹幕效果，Agent 会在浏览器工程中生成、校验并刷新预览。
           </p>
         )}
-        {msgs.map((m) => {
-          if (m.role === "user") {
-            return (
-              <div key={m.id} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-bili-pink px-3.5 py-2 text-sm whitespace-pre-wrap text-white">
+        <div className="space-y-4">
+          {visibleMsgs.map((m, i) =>
+            m.role === "user" ? (
+              <div key={i} className="flex justify-end">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-bili-pink px-3.5 py-2 text-sm text-white">
                   {m.text}
                 </div>
               </div>
-            );
-          }
-          if (m.role === "assistant") {
-            return (
-              <div key={m.id} className="flex gap-2.5">
+            ) : (
+              <div key={i} className="flex gap-2.5">
                 <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
                   K
                 </span>
-                <div className="max-w-[85%] text-sm leading-6 whitespace-pre-wrap text-ink">
+                <div className="max-w-[85%] whitespace-pre-wrap text-sm leading-6 text-ink">
                   {m.text}
-                  {m.streaming && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-bili-pink align-middle" />}
                 </div>
               </div>
-            );
-          }
-          return (
-            <div key={m.id} className="ml-8.5">
-              <div className="flex items-center gap-2 font-mono text-xs">
-                {m.status === "running" ? (
-                  <span className="h-3 w-3 flex-none animate-spin rounded-full border-2 border-bili-blue border-t-transparent" />
-                ) : (
-                  <span className="flex-none text-success">✓</span>
-                )}
-                <span className="font-semibold text-bili-purple">{m.tool}</span>
-                {m.args && <span className="text-ink-3">({m.args})</span>}
-              </div>
-              {m.status === "done" && (
-                <p className="mt-1 border-l-2 border-line pl-3 font-mono text-xs leading-5 text-ink-2">
-                  {m.result}
-                </p>
-              )}
-            </div>
-          );
-        })}
+            ),
+          )}
+        </div>
+        {busy && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+            <span className="flex items-center gap-2 rounded-full bg-card/90 px-3.5 py-1.5 text-xs text-ink-2 shadow-sm ring-1 ring-line backdrop-blur">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-bili-pink border-t-transparent" />
+              Agent 正在生成…
+            </span>
+          </div>
+        )}
       </div>
-
-      {/* 输入区 */}
       <div className="border-t border-line p-3">
+        {!sessionLoading && !user && (
+          <p className="mb-2 px-1 text-xs text-ink-3">
+            登录后可调用模型；Agent 的工程与工具仍只运行在浏览器内。{" "}
+            <Link href="/login?next=/studio" className="text-bili-pink hover:underline">
+              去登录
+            </Link>
+          </p>
+        )}
         <div className="flex items-end gap-2 rounded-xl border border-line bg-fill px-3 py-2 focus-within:border-bili-pink">
           <textarea
             value={input}
@@ -225,13 +313,13 @@ export function AgentChat({
               }
             }}
             rows={1}
-            placeholder={busy ? "Agent 工作中，稍等…" : "继续提修改意见，如「碎片再多一点」…"}
-            disabled={busy}
+            placeholder={busy ? "Agent 工作中，稍等…" : "描述效果或继续提修改意见…"}
+            disabled={busy || sessionLoading || !user}
             className="max-h-28 min-h-6 flex-1 resize-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-3 disabled:opacity-60"
           />
           <button
             onClick={send}
-            disabled={busy || !input.trim()}
+            disabled={busy || sessionLoading || !user || !input.trim()}
             className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-bili-pink text-white transition-opacity disabled:opacity-40"
             title="发送"
           >
@@ -241,7 +329,7 @@ export function AgentChat({
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[11px] text-ink-3">
-          Enter 发送 · Shift+Enter 换行 · 代码不对外暴露，仅展示对话与预览
+          Enter 发送 · Shift+Enter 换行 · 仅允许编辑浏览器内 Effect 工程
         </p>
       </div>
     </div>

@@ -34,7 +34,7 @@
 | `/square` | 万花筒广场 | Mock 数据（`lib/square.ts`） |
 | `/square/[id]` | 广场作品详情 | Mock（`lib/profile.ts` 按真实 API 形态定义，接口就绪后替换） |
 | `/u/[name]` | 个人主页 | Mock 数据（`lib/profile.ts`） |
-| `/oauth/authorize` | OAuth 授权页 | **整体 Mock**，授权码为前端伪造 |
+| `/oauth/authorize` | OAuth 授权页 | `/api/oauth/authorize` ✅（Authorization Code + PKCE，CLI 本地回调） |
 
 ---
 
@@ -88,15 +88,14 @@
 - `lib/profile.ts:84` 注释明确：`GET /api/effects/:id/derivatives —— 某作品的二创列表（关联查看）`。
 - 需要：`GET /api/effects/:id/derivatives`；同时作品模型需要记录 `forkedFrom` 关系（当前 `EffectDto` 没有该字段，前端 localStorage 模型里有）。
 
-### 5. OAuth 授权流程接口（CLI 登录链路）
+### 5. OAuth 授权流程接口（CLI 登录链路）✅ 已完成（2026-07-23）
 
-- `/oauth/authorize` 页是纯 Mock：授权码由前端 `kld_mock_` 前缀伪造，未经任何服务端校验。
-- 技术方案 §7 要求 Authorization Code + PKCE 和 Device Code 两种流程。
-- 需要：
-  - `POST /api/oauth/authorize` —— 已登录用户同意授权，签发授权码（校验 client_id、redirect_uri、scope、PKCE challenge）。
-  - `POST /api/oauth/token` —— 授权码 + code_verifier 交换 access/refresh token。
-  - `POST /api/oauth/device/code` + Device Code 轮询交换接口 —— 无浏览器环境使用。
-  - scope 目录需与前端 `SCOPE_CATALOG`（`profile:read` / `effects:read` / `effects:write` / `square:publish`）对齐。
+- 已实现 Authorization Code + PKCE，CLI 回调为 `127.0.0.1` 本地服务器（`kdanmu login` / `whoami`）：
+  - `POST /api/oauth/authorize` —— 已登录用户同意授权，签发一次性授权码（校验 client_id、loopback redirect_uri、scope 白名单、PKCE challenge；授权码只存哈希，5 分钟有效）。
+  - `POST /api/oauth/token` —— 授权码 + code_verifier 交换 `kdt_` access token（重放、错误 verifier、redirect_uri 不匹配均拒绝）。
+  - `/api/*` 支持 `Authorization: Bearer kdt_*`（`getCurrentUser` 在 cookie 之外回退查 API token）。
+- 仍待做：Device Code 流程（无浏览器环境）、refresh token、第三方 client 注册。
+- scope 目录前后端共用 `types/oauth.ts` 的 `SCOPE_CATALOG`（`profile:read` / `effects:read` / `effects:write` / `square:publish`）。
 
 ### 6. 弹幕 Mock 数据源接口（技术方案 §9 规划）
 
@@ -127,6 +126,6 @@
 | P0 | 契约对齐：用户昵称、作品社区字段、id 类型 |
 | P1 | 广场列表接口 + `/square` 接入真实数据 |
 | P1 | Studio 全面接入 effects/draft（替换 localStorage 编辑流；云端面板式接入已完成 ✅） |
-| ~~P2~~ ✅ | Token 管理页（已完成）；OAuth 授权码/token 接口（解锁 CLI 登录，仍待做） |
+| ~~P2~~ ✅ | Token 管理页（已完成）；OAuth 授权码/token 接口 + CLI 登录（已完成，Device Code 待做） |
 | P2 | 用户公开资料接口；作品详情页互动/二创接口（页面已用 mock 承载 ✅，待换真实数据源） |
 | P3 | 弹幕 Mock 数据源、LLM 代理（应用设置页已完成 ✅） |

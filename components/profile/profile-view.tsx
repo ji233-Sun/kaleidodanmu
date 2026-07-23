@@ -54,20 +54,23 @@ interface InteractionState {
 }
 
 export function ProfileView({ name }: { name: string }) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profileResult, setProfileResult] = useState<{
+    name: string;
+    profile: UserProfile | null;
+  } | null>(null);
   const [interactions, setInteractions] = useState<Record<string, InteractionState>>({});
   /** 正在查看二创列表的作品 */
   const [derivativesOf, setDerivativesOf] = useState<PublishedEffect | null>(null);
-  const [derivatives, setDerivatives] = useState<DerivativeWork[] | null>(null);
+  const [derivativesResult, setDerivativesResult] = useState<{
+    effectId: string;
+    items: DerivativeWork[];
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetchUserProfile(name).then((p) => {
       if (cancelled) return;
-      setProfile(p);
-      setLoading(false);
+      setProfileResult({ name, profile: p });
     });
     return () => {
       cancelled = true;
@@ -76,9 +79,21 @@ export function ProfileView({ name }: { name: string }) {
 
   useEffect(() => {
     if (!derivativesOf) return;
-    setDerivatives(null);
-    fetchDerivatives(derivativesOf.id).then(setDerivatives);
+    let cancelled = false;
+    fetchDerivatives(derivativesOf.id).then((items) => {
+      if (!cancelled) setDerivativesResult({ effectId: derivativesOf.id, items });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [derivativesOf]);
+
+  const loading = profileResult?.name !== name;
+  const profile = loading ? null : profileResult.profile;
+  const derivatives =
+    derivativesOf && derivativesResult?.effectId === derivativesOf.id
+      ? derivativesResult.items
+      : null;
 
   const interact = useCallback(
     (effect: PublishedEffect, kind: "like" | "coin" | "favorite") => {

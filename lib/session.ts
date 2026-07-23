@@ -66,11 +66,11 @@ export async function logoutSession(): Promise<void> {
 }
 
 /** 当前登录会话。首次挂载时自动拉取一次。 */
-export function useSession() {
+export function useSession(enabled = true) {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    if (!state.loaded) void refreshSession();
-  }, []);
+    if (enabled && !state.loaded) void refreshSession();
+  }, [enabled]);
   return {
     user: snap.user,
     /** 首次会话确认完成前为 true，避免闪烁登录/未登录两种 UI */

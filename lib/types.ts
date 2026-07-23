@@ -36,6 +36,8 @@ export interface KaleidoEffect {
   name: string;
   prompt: string;
   recipe: Recipe;
+  /** ADE 生成的受限 Effect 入口；旧草稿缺省时使用内置入口 */
+  entrySource?: string;
   version: number;
   createdAt: number;
   updatedAt: number;

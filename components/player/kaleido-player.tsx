@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DanmakuEvent, Recipe } from "@/lib/types";
 import { generateLiveDanmaku, generateVodDanmaku } from "@/lib/danmaku";
-import { KaleidoRenderer } from "@/lib/renderer";
+import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
+import { EffectSandbox, type EffectSandboxHandle } from "@/components/player/effect-sandbox";
 import { cn } from "@/lib/cn";
 
 const SPEEDS = [2, 1.5, 1.25, 1, 0.75, 0.5];
@@ -17,20 +18,21 @@ function fmt(s: number) {
 
 export function KaleidoPlayer({
   recipe,
+  effectSource = DEFAULT_EFFECT_SOURCE,
   seed = 42,
   title = "【演示】万花筒弹幕 · 概念视频",
   autoPlay = true,
 }: {
   recipe: Recipe;
+  effectSource?: string;
   seed?: number;
   title?: string;
   autoPlay?: boolean;
 }) {
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const effectRef = useRef<EffectSandboxHandle>(null);
   const dmLayerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<KaleidoRenderer | null>(null);
   const laneBusyRef = useRef<number[]>(new Array(LANES).fill(0));
   const vodIdxRef = useRef(0);
   const vodLastRef = useRef(0);
@@ -49,35 +51,10 @@ export function KaleidoPlayer({
   const [dmOn, setDmOn] = useState(true);
   const [source, setSource] = useState<"vod" | "live">("vod");
   const [fps, setFps] = useState(0);
+  const [effectError, setEffectError] = useState<string | null>(null);
 
   const vodEvents = useMemo(() => generateVodDanmaku(seed, 60_000, 240), [seed]);
   const liveEvents = useMemo(() => generateLiveDanmaku(seed), [seed]);
-
-  /* ---------- renderer lifecycle ---------- */
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const renderer = new KaleidoRenderer(canvas, recipe);
-    renderer.onFps = setFps;
-    rendererRef.current = renderer;
-    renderer.start();
-    const ro = new ResizeObserver(() => renderer.resize());
-    ro.observe(canvas);
-    return () => {
-      ro.disconnect();
-      renderer.stop();
-      rendererRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    rendererRef.current?.setRecipe(recipe);
-  }, [recipe]);
-
-  useEffect(() => {
-    rendererRef.current?.setPlaying(playing);
-  }, [playing]);
 
   /* ---------- danmaku emission ---------- */
   const fireClassic = useCallback((ev: DanmakuEvent) => {
@@ -105,9 +82,12 @@ export function KaleidoPlayer({
     el.style.textShadow = "0 0 4px rgba(0,0,0,.8)";
     layer.appendChild(el);
 
+    const maxVisible = layer.clientWidth < 480 ? 10 : 24;
+    while (layer.childElementCount > maxVisible) layer.firstElementChild?.remove();
+
     const w = layer.clientWidth;
     const ew = el.offsetWidth;
-    const duration = 7000;
+    const duration = layer.clientWidth < 480 ? 5000 : 7000;
     let start = performance.now();
     let pausedAt: number | null = null;
     const frame = (t: number) => {
@@ -134,7 +114,7 @@ export function KaleidoPlayer({
 
   const emit = useCallback(
     (ev: DanmakuEvent) => {
-      rendererRef.current?.emit(ev);
+      effectRef.current?.emit(ev);
       fireClassic(ev);
     },
     [fireClassic],
@@ -156,7 +136,7 @@ export function KaleidoPlayer({
         if (nowMs < last) {
           // seek 回退或循环：按时间线重放
           vodIdxRef.current = 0;
-          rendererRef.current?.clear();
+          effectRef.current?.reset();
           dmLayerRef.current?.replaceChildren();
         } else if (!v.paused) {
           while (
@@ -200,7 +180,7 @@ export function KaleidoPlayer({
     vodIdxRef.current = 0;
     liveIdxRef.current = 0;
     liveClockRef.current = 0;
-    rendererRef.current?.clear();
+    effectRef.current?.reset();
     dmLayerRef.current?.replaceChildren();
   }, [source]);
 
@@ -306,8 +286,17 @@ export function KaleidoPlayer({
         className="absolute inset-0 h-full w-full object-contain"
       />
 
-      {/* 万花筒渲染层 */}
-      <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[5] h-full w-full" />
+      {/* 隔离的 Canvas / WebGL Effect 层 */}
+      <div className="pointer-events-none absolute inset-0 z-[5]">
+        <EffectSandbox
+          ref={effectRef}
+          source={effectSource}
+          recipe={recipe}
+          playing={playing}
+          onFps={setFps}
+          onError={setEffectError}
+        />
+      </div>
 
       {/* 经典弹幕层 */}
       <div
@@ -338,6 +327,11 @@ export function KaleidoPlayer({
         <span className="rounded-full border border-white/20 bg-black/50 px-2.5 py-0.5 text-xs text-bili-blue">
           {source === "vod" ? "点播 Mock" : "直播 Mock"}
         </span>
+        {effectError && (
+          <span className="max-w-52 truncate rounded-full border border-red-300/40 bg-red-950/70 px-2.5 py-0.5 text-xs text-red-200" title={effectError}>
+            Effect 运行错误
+          </span>
+        )}
       </div>
 
       {/* 暂停大图标 */}
@@ -393,7 +387,7 @@ export function KaleidoPlayer({
             )}
           </button>
 
-          <span className="px-1 text-xs text-white/90 tabular-nums">
+          <span className="hidden px-1 text-xs text-white/90 tabular-nums sm:inline">
             {fmt(cur)}
             <span className="mx-0.5 text-white/50">/</span>
             {fmt(dur)}
@@ -473,7 +467,7 @@ export function KaleidoPlayer({
           </button>
 
           {/* 音量 */}
-          <div className="group/vol flex items-center">
+          <div className="group/vol hidden items-center sm:flex">
             <button
               onClick={() => {
                 const v = videoRef.current;

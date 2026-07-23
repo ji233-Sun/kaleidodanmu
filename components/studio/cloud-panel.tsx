@@ -7,6 +7,7 @@ import type { EffectChannel, EffectDto, EffectVersionDto } from "@/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { upsertEffect } from "@/lib/store";
+import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
 import { Alert, Badge, Button, Spinner } from "@/components/ui";
 import type { BadgeHue } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -119,9 +120,10 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
       JSON.stringify({
         prompt: effect.prompt,
         recipe: effect.recipe,
+        entrySource: effect.entrySource ?? DEFAULT_EFFECT_SOURCE,
         version: effect.version,
       }),
-    [effect.prompt, effect.recipe, effect.version],
+    [effect.entrySource, effect.prompt, effect.recipe, effect.version],
   );
 
   const pushDraft = useCallback(
@@ -176,7 +178,7 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
     setError(null);
     setBusy("version");
     try {
-      const code = toBase64(`export default ${JSON.stringify(effect.recipe, null, 2)}\n`);
+      const code = toBase64(effect.entrySource ?? DEFAULT_EFFECT_SOURCE);
       const { version: v } = await apiFetch<{ version: EffectVersionDto }>(
         `/api/effects/${effect.serverId}/versions`,
         {
@@ -190,6 +192,7 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
               name: effect.name,
               prompt: effect.prompt,
               recipe: effect.recipe,
+              capabilities: ["canvas", "danmaku", "three", "gsap"],
             }),
             code,
             channel: "draft",

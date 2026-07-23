@@ -1,5 +1,5 @@
 import 'reflect-metadata' // TypeORM 装饰器元数据，必须最先导入
-import 'better-sqlite3' // 副作用导入：向 TypeORM 注册 better-sqlite3 驱动
+import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DataSource } from 'typeorm'
@@ -11,13 +11,53 @@ import { Effect } from './entities/effect.entity'
 import { EffectVersion } from './entities/effectVersion.entity'
 import { Draft } from './entities/draft.entity'
 import { ApiToken } from './entities/apiToken.entity'
+import { OAuthCode } from './entities/oauthCode.entity'
 import { AppSetting } from './entities/appSetting.entity'
 import { EffectInteraction } from './entities/effectInteraction.entity'
-
+import { AdeSession } from './entities/adeSession.entity'
 const dbPath = env.dbPath
 
 // SQLite 不会自动创建父目录，初始化前确保存在
 mkdirSync(dirname(dbPath), { recursive: true })
+
+/**
+ * 为 synchronize 无法处理的 SQLite 旧表补齐用户资料列。
+ *
+ * SQLite 新增 NOT NULL 列时需要默认值；若交给 TypeORM 直接重建表，
+ * 旧 rows 在拷贝到 temporary_users 时会因缺少新列而失败。
+ */
+function migrateLegacyUsersSchema(): void {
+  const database = new Database(dbPath)
+
+  try {
+    const usersTable = database
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")
+      .get()
+    if (!usersTable) return
+
+    const columns = new Set(
+      (database.prepare('PRAGMA table_info(\"users\")').all() as Array<{ name: string }>).map(
+        ({ name }) => name,
+      ),
+    )
+
+    const addColumn = (name: string, definition: string) => {
+      if (!columns.has(name)) database.exec(`ALTER TABLE \"users\" ADD COLUMN \"${name}\" ${definition}`)
+    }
+
+    // 旧表没有 name，因此由稳定且唯一的主键生成初始 handle。
+    addColumn('name', "text NOT NULL DEFAULT ''")
+    database.exec("UPDATE \"users\" SET \"name\" = 'u' || \"id\" WHERE \"name\" = ''")
+
+    addColumn('display_name', "text NOT NULL DEFAULT ''")
+    database.exec("UPDATE \"users\" SET \"display_name\" = \"name\" WHERE \"display_name\" = ''")
+
+    addColumn('avatar_hue', "text NOT NULL DEFAULT '#00a1d6'")
+    addColumn('bio', "text NOT NULL DEFAULT ''")
+  } finally {
+    database.close()
+  }
+}
 
 /** 屏蔽查询噪声，只保留 schema 同步 / error / warn。 */
 class StartupLogger implements Logger {
@@ -49,7 +89,9 @@ function createDataSource(): DataSource {
       EffectInteraction,
       Draft,
       ApiToken,
+      OAuthCode,
       AppSetting,
+      AdeSession,
     ],
     synchronize: true, // 原型期自动同步 Schema；生产关闭并改用迁移
     logging: ['schema', 'error', 'warn'],
@@ -67,6 +109,7 @@ export const AppDataSource = (globalForDs.__kaleidoDataSource ??= createDataSour
 /** 幂等初始化：服务端启动（instrumentation）、Repository 首访或独立脚本调用。 */
 export async function initDataSource(): Promise<void> {
   if (AppDataSource.isInitialized) return
+  migrateLegacyUsersSchema()
   await AppDataSource.initialize()
   console.log(`[db] ready · ${dbPath}`)
 }
