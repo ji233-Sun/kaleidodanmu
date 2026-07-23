@@ -40,6 +40,18 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 首页装饰弹幕 */
+@keyframes dm-fly {
+  to {
+    transform: translateX(-220vw);
+  }
+}
+.animate-dm-fly {
+  animation-name: dm-fly;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 /* B 站风格滑块（Slider 组件的原生 range 样式） */
 .bili-range {
   -webkit-appearance: none;
