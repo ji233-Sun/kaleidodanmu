@@ -1,19 +1,21 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "prism" | "glass" | "outline" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const variants: Record<ButtonVariant, string> = {
-  // 光谱渐变填充，hover 时流光移动 + 辉光增强
-  prism:
-    "text-white bg-[linear-gradient(110deg,var(--color-prism-cyan),var(--color-prism-violet)_45%,var(--color-prism-fuchsia))] bg-[length:180%_100%] bg-left hover:bg-right transition-[background-position,box-shadow] duration-500 shadow-[0_0_20px_-6px_var(--color-prism-violet)] hover:shadow-[0_0_30px_-4px_var(--color-prism-fuchsia)]",
-  // 磨砂玻璃
-  glass: "glass text-snow hover:bg-white/10 transition-colors",
-  // 棱镜碎片描边
-  outline: "prism-border text-snow hover:brightness-125 transition",
+  // 品牌粉填充
+  primary:
+    "bg-bili-pink text-white shadow-sm hover:bg-bili-pink-hover transition-colors",
+  // 白底灰边，hover 变粉
+  secondary:
+    "border border-line bg-white text-ink-2 hover:border-bili-pink hover:text-bili-pink transition-colors",
+  // 粉色描边
+  outline:
+    "border border-bili-pink text-bili-pink hover:bg-bili-pink-light transition-colors",
   // 无边界弱样式
-  ghost: "text-mist hover:text-snow hover:bg-white/5 transition-colors",
+  ghost: "text-ink-2 hover:bg-fill hover:text-bili-pink transition-colors",
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -28,7 +30,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export function Button({
-  variant = "prism",
+  variant = "primary",
   size = "md",
   className,
   ...props
@@ -36,8 +38,8 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-full font-medium select-none cursor-pointer",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prism-cyan",
+        "inline-flex items-center justify-center rounded-lg font-medium select-none cursor-pointer",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bili-pink",
         "disabled:opacity-50 disabled:pointer-events-none",
         variants[variant],
         sizes[size],

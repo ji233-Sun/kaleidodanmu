@@ -15,35 +15,38 @@ export interface TabsProps {
   className?: string;
 }
 
-/** 玻璃底槽 + 光谱渐变指示 pill 的页签 */
+/** B 站风格页签：粉色高亮文字 + 下划线指示条 */
 export function Tabs({ items, defaultValue, className }: TabsProps) {
   const [active, setActive] = useState(defaultValue ?? items[0]?.value);
   const current = items.find((i) => i.value === active);
 
   return (
     <div className={className}>
-      <div
-        role="tablist"
-        className="glass inline-flex items-center gap-1 rounded-full p-1"
-      >
-        {items.map((item) => (
-          <button
-            key={item.value}
-            role="tab"
-            aria-selected={item.value === active}
-            onClick={() => setActive(item.value)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-300 cursor-pointer",
-              item.value === active
-                ? "bg-[linear-gradient(110deg,var(--color-prism-violet),var(--color-prism-fuchsia))] text-white shadow-[0_0_16px_-4px_var(--color-prism-fuchsia)]"
-                : "text-mist hover:text-snow",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div role="tablist" className="flex items-center gap-6 border-b border-line">
+        {items.map((item) => {
+          const isActive = item.value === active;
+          return (
+            <button
+              key={item.value}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActive(item.value)}
+              className={cn(
+                "relative pb-2.5 text-sm transition-colors cursor-pointer",
+                isActive
+                  ? "font-semibold text-bili-pink"
+                  : "text-ink-2 hover:text-ink",
+              )}
+            >
+              {item.label}
+              {isActive && (
+                <span className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-bili-pink" />
+              )}
+            </button>
+          );
+        })}
       </div>
-      <div role="tabpanel" className="mt-4 text-sm text-mist">
+      <div role="tabpanel" className="mt-4 text-sm leading-6 text-ink-2">
         {current?.content}
       </div>
     </div>

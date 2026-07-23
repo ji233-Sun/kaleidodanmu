@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "KaleidoDanmu UI",
-  description: "万花筒主题弹幕系统组件库",
+  description: "仿哔哩哔哩风格的弹幕系统组件库",
 };
 
 export default function RootLayout({

@@ -1,142 +1,82 @@
 @import "tailwindcss";
 
 /*
- * KaleidoDanmu 设计主题 —— 「万花筒」
- * 深邃镜筒底色 + 棱镜光谱 + 玻璃拟态 + 锥形渐变碎片描边
+ * KaleidoDanmu 设计主题 —— 仿哔哩哔哩
+ * 浅灰页面底 + 白色卡片 + B 站品牌粉 / 蓝
  */
 @theme {
-  /* 镜筒底色（dark-first） */
-  --color-void-950: #06060e;
-  --color-void-900: #0b0b18;
-  --color-void-800: #131327;
-  --color-void-700: #1d1d3a;
+  /* 品牌色 */
+  --color-bili-pink: #fb7299;
+  --color-bili-pink-hover: #fc8bab;
+  --color-bili-pink-light: #ffe4ec;
+  --color-bili-blue: #00a1d6;
+  --color-bili-blue-hover: #00b5e5;
+  --color-bili-blue-light: #e0f4fb;
 
-  /* 棱镜光谱 */
-  --color-prism-violet: #8b5cf6;
-  --color-prism-fuchsia: #e879f9;
-  --color-prism-cyan: #22d3ee;
-  --color-prism-amber: #fbbf24;
-  --color-prism-rose: #fb7185;
-  --color-prism-lime: #a3e635;
+  /* 中性色 */
+  --color-page: #f6f7f8;
+  --color-card: #ffffff;
+  --color-line: #e3e5e7;
+  --color-fill: #f1f2f3;
 
   /* 文字 */
-  --color-snow: #f1f1fa;
-  --color-mist: #9b9cc0;
+  --color-ink: #18191c;
+  --color-ink-2: #61666d;
+  --color-ink-3: #9499a0;
 
-  --font-sans: var(--font-geist-sans);
+  /* 状态色 */
+  --color-success: #2ac864;
+  --color-success-light: #e3f9eb;
+  --color-warning: #ff9f29;
+  --color-warning-light: #fff3e0;
+  --color-error: #f85a54;
+  --color-error-light: #ffe9e8;
+  --color-bili-purple: #7c5cfc;
+  --color-bili-purple-light: #efebff;
+
+  --font-sans:
+    var(--font-geist-sans), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-geist-mono);
-
-  --animate-kaleido-spin: kaleido-spin 14s linear infinite;
-  --animate-kaleido-spin-rev: kaleido-spin-rev 22s linear infinite;
-  --animate-shimmer: shimmer 5s linear infinite;
-
-  @keyframes kaleido-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  @keyframes kaleido-spin-rev {
-    to {
-      transform: rotate(-360deg);
-    }
-  }
-  @keyframes shimmer {
-    to {
-      background-position: 200% 0;
-    }
-  }
 }
 
-/* 磨砂玻璃面板 */
-@utility glass {
-  background: color-mix(in oklab, var(--color-void-800) 60%, transparent);
-  border: 1px solid rgb(255 255 255 / 0.08);
-  backdrop-filter: blur(14px);
-}
-
-/*
- * 棱镜碎片描边：conic 渐变边框。
- * 可通过 --prism-fill 覆盖内部填充色，配合 backdrop-blur 使用。
- */
-@utility prism-border {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(
-        var(--prism-fill, var(--color-void-900)),
-        var(--prism-fill, var(--color-void-900))
-      )
-      padding-box,
-    conic-gradient(
-        from 210deg,
-        var(--color-prism-violet),
-        var(--color-prism-cyan),
-        var(--color-prism-lime),
-        var(--color-prism-amber),
-        var(--color-prism-rose),
-        var(--color-prism-fuchsia),
-        var(--color-prism-violet)
-      )
-      border-box;
-}
-
-/* 流光渐变文字 */
-@utility text-prism {
-  background-image: linear-gradient(
-    100deg,
-    var(--color-prism-cyan),
-    var(--color-prism-violet) 35%,
-    var(--color-prism-fuchsia) 65%,
-    var(--color-prism-amber)
-  );
-  background-size: 200% 100%;
-  background-clip: text;
-  color: transparent;
-  animation: var(--animate-shimmer);
-}
-
-/* 万花筒滑块（Slider 组件的原生 range 样式） */
-.kaleido-range {
+/* B 站风格滑块（Slider 组件的原生 range 样式） */
+.bili-range {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
 }
-.kaleido-range::-webkit-slider-runnable-track {
-  height: 6px;
+.bili-range::-webkit-slider-runnable-track {
+  height: 4px;
   border-radius: 9999px;
-  background: linear-gradient(
-    90deg,
-    var(--color-prism-cyan),
-    var(--color-prism-violet),
-    var(--color-prism-fuchsia)
-  );
+  background: var(--color-line);
 }
-.kaleido-range::-webkit-slider-thumb {
+.bili-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  margin-top: -5px;
+  margin-top: -6px;
   height: 16px;
   width: 16px;
   border-radius: 9999px;
   background: #fff;
-  border: 3px solid var(--color-prism-violet);
-  box-shadow: 0 0 12px color-mix(in oklab, var(--color-prism-violet) 80%, transparent);
+  border: 2px solid var(--color-bili-pink);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+  transition: transform 0.15s ease;
 }
-.kaleido-range::-moz-range-track {
-  height: 6px;
+.bili-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.bili-range::-moz-range-track {
+  height: 4px;
   border-radius: 9999px;
-  background: linear-gradient(
-    90deg,
-    var(--color-prism-cyan),
-    var(--color-prism-violet),
-    var(--color-prism-fuchsia)
-  );
+  background: var(--color-line);
 }
-.kaleido-range::-moz-range-thumb {
+.bili-range::-moz-range-thumb {
   height: 16px;
   width: 16px;
   border-radius: 9999px;
   background: #fff;
-  border: 3px solid var(--color-prism-violet);
-  box-shadow: 0 0 12px color-mix(in oklab, var(--color-prism-violet) 80%, transparent);
+  border: 2px solid var(--color-bili-pink);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
 }

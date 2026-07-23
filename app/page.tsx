@@ -6,10 +6,10 @@ import {
   Badge,
   Button,
   Input,
-  KaleidoSpinner,
   Panel,
   Progress,
   Slider,
+  Spinner,
   Switch,
   Tabs,
   Textarea,
@@ -25,10 +25,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <div>
-        <h2 className="text-lg font-semibold text-snow">{title}</h2>
-        {desc && <p className="mt-1 text-sm text-mist">{desc}</p>}
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        {desc && <p className="mt-0.5 text-xs text-ink-3">{desc}</p>}
       </div>
       {children}
     </section>
@@ -36,46 +36,78 @@ function Section({
 }
 
 function Label({ children }: { children: ReactNode }) {
-  return <p className="mb-2 text-xs font-medium text-mist">{children}</p>;
+  return <p className="mb-1.5 text-xs font-medium text-ink-2">{children}</p>;
+}
+
+function Logo() {
+  return (
+    <a href="#" className="flex items-center gap-2">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bili-pink text-sm font-bold text-white">
+        弹
+      </span>
+      <span className="text-lg font-bold tracking-tight text-ink">
+        KaleidoDanmu
+      </span>
+    </a>
+  );
 }
 
 export default function Showcase() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-void-950 font-sans text-snow">
-      {/* 背景装饰：镜筒深处的光谱光斑 */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-40 h-150 w-150 rounded-full bg-[conic-gradient(from_0deg,var(--color-prism-violet),var(--color-prism-cyan),var(--color-prism-fuchsia),var(--color-prism-violet))] opacity-20 blur-3xl animate-kaleido-spin" />
-        <div className="absolute -right-40 top-1/3 h-125 w-125 rounded-full bg-[conic-gradient(from_180deg,var(--color-prism-amber),var(--color-prism-rose),var(--color-prism-lime),var(--color-prism-amber))] opacity-15 blur-3xl animate-kaleido-spin-rev" />
-      </div>
-
-      <div className="relative mx-auto max-w-4xl px-6 py-16">
-        {/* 头部 */}
-        <header className="mb-16 flex flex-col items-center text-center">
-          <KaleidoSpinner size={72} />
-          <h1 className="mt-6 text-4xl font-bold tracking-tight">
-            <span className="text-prism">KaleidoDanmu UI</span>
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-mist">
-            万花筒主题组件库 ——
-            深邃镜筒底色、棱镜光谱、玻璃拟态与碎片描边。
-          </p>
-          <div className="mt-5 flex gap-2">
-            <Badge hue="violet">组件化</Badge>
-            <Badge hue="cyan">Dark-first</Badge>
-            <Badge hue="amber">Tailwind v4</Badge>
+    <div className="min-h-screen bg-page font-sans text-ink">
+      {/* 顶部导航栏 */}
+      <header className="sticky top-0 z-10 border-b border-line bg-white/90 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-5xl items-center gap-8 px-6">
+          <Logo />
+          <nav className="hidden items-center gap-6 text-sm text-ink-2 sm:flex">
+            <a href="#" className="font-medium text-bili-pink">
+              组件
+            </a>
+            <a href="#" className="transition-colors hover:text-bili-pink">
+              弹幕玩法
+            </a>
+            <a href="#" className="transition-colors hover:text-bili-pink">
+              接入文档
+            </a>
+          </nav>
+          <div className="ml-auto flex items-center gap-3">
+            <Input placeholder="搜索组件…" className="hidden w-44 md:block" />
+            <Button size="sm">立即使用</Button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <div className="space-y-14">
+      <main className="mx-auto max-w-5xl px-6 py-8">
+        {/* 页面标题区 */}
+        <Panel className="mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold text-ink">
+                KaleidoDanmu 组件库
+              </h1>
+              <p className="mt-1 text-sm text-ink-2">
+                仿哔哩哔哩视觉规范 —— 品牌粉主色、白色卡片、清爽的浅色界面。
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Badge hue="pink">组件化</Badge>
+                <Badge hue="blue">Light-first</Badge>
+                <Badge hue="green">Tailwind v4</Badge>
+              </div>
+            </div>
+            <Spinner size={48} />
+          </div>
+        </Panel>
+
+        <div className="space-y-8">
           {/* 按钮 */}
-          <Section title="Button 按钮" desc="四种变体：光谱填充 / 玻璃 / 棱镜描边 / 幽灵">
+          <Section title="Button 按钮" desc="四种变体：主要 / 次要 / 描边 / 幽灵">
             <Panel className="space-y-5">
               <div className="flex flex-wrap items-center gap-3">
-                <Button variant="prism">发送弹幕</Button>
-                <Button variant="glass">玻璃按钮</Button>
-                <Button variant="outline">棱镜描边</Button>
+                <Button variant="primary">发送弹幕</Button>
+                <Button variant="secondary">次要按钮</Button>
+                <Button variant="outline">描边按钮</Button>
                 <Button variant="ghost">幽灵按钮</Button>
-                <Button variant="prism" disabled>
+                <Button variant="primary" disabled>
                   不可用
                 </Button>
               </div>
@@ -88,18 +120,18 @@ export default function Showcase() {
           </Section>
 
           {/* 面板 */}
-          <Section title="Panel 面板" desc="普通玻璃面板与棱镜碎片描边面板">
+          <Section title="Panel 面板" desc="普通卡片与可悬浮卡片">
             <div className="grid gap-4 sm:grid-cols-2">
               <Panel>
-                <p className="text-sm text-snow">玻璃面板</p>
-                <p className="mt-1 text-sm text-mist">
-                  磨砂质感，适合承载表单与列表内容。
+                <p className="text-sm font-medium text-ink">普通卡片</p>
+                <p className="mt-1 text-sm text-ink-2">
+                  白色底、浅灰描边，适合承载表单与列表内容。
                 </p>
               </Panel>
-              <Panel prism>
-                <p className="text-sm text-snow">棱镜描边面板</p>
-                <p className="mt-1 text-sm text-mist">
-                  锥形渐变碎片描边，用于需要强调的区域。
+              <Panel hoverable>
+                <p className="text-sm font-medium text-ink">可悬浮卡片</p>
+                <p className="mt-1 text-sm text-ink-2">
+                  hover 时浮起加深阴影，适合视频卡片等可点击区域。
                 </p>
               </Panel>
             </div>
@@ -115,7 +147,7 @@ export default function Showcase() {
                 </div>
                 <div>
                   <Label>弹幕颜色</Label>
-                  <Input defaultValue="#8b5cf6" />
+                  <Input defaultValue="#fb7299" />
                 </div>
               </div>
               <div>
@@ -125,15 +157,15 @@ export default function Showcase() {
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-snow">接收弹幕通知</span>
+                    <span className="text-sm text-ink">接收弹幕通知</span>
                     <Switch defaultChecked />
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-snow">礼物特效</span>
+                    <span className="text-sm text-ink">礼物特效</span>
                     <Switch />
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-mist">已禁用开关</span>
+                    <span className="text-sm text-ink-3">已禁用开关</span>
                     <Switch disabled defaultChecked />
                   </div>
                 </div>
@@ -152,14 +184,14 @@ export default function Showcase() {
           </Section>
 
           {/* 徽章 */}
-          <Section title="Badge 徽章" desc="六色光谱，可用于弹幕等级、标签等场景">
+          <Section title="Badge 徽章" desc="可用于弹幕等级、标签等场景">
             <Panel className="flex flex-wrap gap-2">
-              <Badge hue="violet">舰长</Badge>
-              <Badge hue="fuchsia">提督</Badge>
-              <Badge hue="cyan">UP 主</Badge>
-              <Badge hue="amber">高能</Badge>
-              <Badge hue="rose">醒目留言</Badge>
-              <Badge hue="lime">新观众</Badge>
+              <Badge hue="pink">舰长</Badge>
+              <Badge hue="purple">提督</Badge>
+              <Badge hue="blue">UP 主</Badge>
+              <Badge hue="orange">高能</Badge>
+              <Badge hue="red">醒目留言</Badge>
+              <Badge hue="green">新观众</Badge>
             </Panel>
           </Section>
 
@@ -171,7 +203,8 @@ export default function Showcase() {
                   {
                     value: "all",
                     label: "全部弹幕",
-                    content: "滚动弹幕、顶部弹幕、底部弹幕都会显示在这里。",
+                    content:
+                      "滚动弹幕、顶部弹幕、底部弹幕都会显示在这里。",
                   },
                   {
                     value: "gift",
@@ -181,7 +214,8 @@ export default function Showcase() {
                   {
                     value: "stats",
                     label: "统计",
-                    content: "互动数据面板：弹幕量、在线人数、互动率趋势。",
+                    content:
+                      "互动数据面板：弹幕量、在线人数、互动率趋势。",
                   },
                 ]}
               />
@@ -192,10 +226,10 @@ export default function Showcase() {
           <Section title="Feedback 反馈" desc="加载器、进度条与提示条">
             <Panel className="space-y-6">
               <div className="flex items-center gap-6">
-                <KaleidoSpinner size={56} />
-                <KaleidoSpinner size={36} />
-                <KaleidoSpinner size={24} />
-                <span className="text-sm text-mist">万花筒加载中…</span>
+                <Spinner size={48} />
+                <Spinner size={32} />
+                <Spinner size={20} />
+                <span className="text-sm text-ink-3">加载中…</span>
               </div>
               <div className="space-y-3">
                 <Progress value={32} />
@@ -203,16 +237,16 @@ export default function Showcase() {
                 <Progress value={95} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Alert hue="cyan" title="连接成功">
+                <Alert hue="blue" title="连接成功">
                   已接入弹幕服务器，正在同步消息流。
                 </Alert>
-                <Alert hue="amber" title="弹幕密集">
+                <Alert hue="orange" title="弹幕密集">
                   当前弹幕密度过高，已自动开启限流模式。
                 </Alert>
-                <Alert hue="rose" title="连接断开">
+                <Alert hue="red" title="连接断开">
                   与弹幕服务器的连接已断开，正在尝试重连…
                 </Alert>
-                <Alert hue="lime" title="任务完成">
+                <Alert hue="green" title="任务完成">
                   本场直播的弹幕录制已保存完毕。
                 </Alert>
               </div>
@@ -220,10 +254,10 @@ export default function Showcase() {
           </Section>
         </div>
 
-        <footer className="mt-16 text-center text-xs text-mist/60">
-          KaleidoDanmu UI · 万花筒主题组件库
+        <footer className="mt-12 text-center text-xs text-ink-3">
+          KaleidoDanmu UI · 仿哔哩哔哩风格组件库
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

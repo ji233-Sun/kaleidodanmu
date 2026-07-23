@@ -2,32 +2,32 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 export type BadgeHue =
-  | "violet"
-  | "fuchsia"
-  | "cyan"
-  | "amber"
-  | "rose"
-  | "lime";
+  | "pink"
+  | "blue"
+  | "purple"
+  | "orange"
+  | "red"
+  | "green";
 
 const hues: Record<BadgeHue, string> = {
-  violet: "bg-prism-violet/15 text-prism-violet border-prism-violet/30",
-  fuchsia: "bg-prism-fuchsia/15 text-prism-fuchsia border-prism-fuchsia/30",
-  cyan: "bg-prism-cyan/15 text-prism-cyan border-prism-cyan/30",
-  amber: "bg-prism-amber/15 text-prism-amber border-prism-amber/30",
-  rose: "bg-prism-rose/15 text-prism-rose border-prism-rose/30",
-  lime: "bg-prism-lime/15 text-prism-lime border-prism-lime/30",
+  pink: "bg-bili-pink-light text-bili-pink",
+  blue: "bg-bili-blue-light text-bili-blue",
+  purple: "bg-bili-purple-light text-bili-purple",
+  orange: "bg-warning-light text-warning",
+  red: "bg-error-light text-error",
+  green: "bg-success-light text-success",
 };
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   hue?: BadgeHue;
 }
 
-/** 光谱色标签，带同色系微光 */
-export function Badge({ hue = "violet", className, ...props }: BadgeProps) {
+/** B 站风格浅色底标签 */
+export function Badge({ hue = "pink", className, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium",
         hues[hue],
         className,
       )}

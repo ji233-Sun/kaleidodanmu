@@ -14,7 +14,7 @@ export interface SliderProps {
   className?: string;
 }
 
-/** 光谱轨道滑块（样式见 globals.css 的 .kaleido-range） */
+/** B 站风格滑块（样式见 globals.css 的 .bili-range） */
 export function Slider({
   defaultValue = 50,
   min = 0,
@@ -30,7 +30,7 @@ export function Slider({
     <div className={cn("flex items-center gap-3", className)}>
       <input
         type="range"
-        className="kaleido-range w-full"
+        className="bili-range w-full"
         min={min}
         max={max}
         step={step}
@@ -42,7 +42,7 @@ export function Slider({
         }}
       />
       {showValue && (
-        <span className="w-10 shrink-0 text-right font-mono text-xs text-mist tabular-nums">
+        <span className="w-10 shrink-0 text-right font-mono text-xs text-ink-3 tabular-nums">
           {value}
         </span>
       )}
