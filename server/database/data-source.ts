@@ -12,6 +12,7 @@ import { EffectVersion } from './entities/effectVersion.entity'
 import { Draft } from './entities/draft.entity'
 import { ApiToken } from './entities/apiToken.entity'
 import { AppSetting } from './entities/appSetting.entity'
+import { EffectInteraction } from './entities/effectInteraction.entity'
 
 const dbPath = env.dbPath
 
@@ -40,7 +41,16 @@ function createDataSource(): DataSource {
   return new DataSource({
     type: 'better-sqlite3',
     database: dbPath,
-    entities: [User, Session, Effect, EffectVersion, Draft, ApiToken, AppSetting],
+    entities: [
+      User,
+      Session,
+      Effect,
+      EffectVersion,
+      EffectInteraction,
+      Draft,
+      ApiToken,
+      AppSetting,
+    ],
     synchronize: true, // 原型期自动同步 Schema；生产关闭并改用迁移
     logging: ['schema', 'error', 'warn'],
     logger: new StartupLogger(),

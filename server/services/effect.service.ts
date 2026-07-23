@@ -9,12 +9,31 @@ import type {
 } from '@/types'
 import type { Effect } from '@/server/database/entities/effect.entity'
 
+function parseJson<T>(raw: string | null | undefined, fallback: T): T {
+  if (!raw) return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
 export function toEffectDto(e: Effect): EffectDto {
   return {
     id: e.id,
     ownerId: e.ownerId,
     slug: e.slug,
     name: e.name,
+    forkedFrom: e.forkedFrom,
+    visibility: e.visibility === 'public' ? 'public' : 'private',
+    prompt: e.prompt,
+    recipe: parseJson(e.recipeJson, {}),
+    tags: parseJson<string[]>(e.tagsJson, []),
+    likes: e.likes,
+    uses: e.uses,
+    remixes: e.remixes,
+    coins: e.coins,
+    favorites: e.favorites,
     draftVersionId: e.draftVersionId,
     stagingVersionId: e.stagingVersionId,
     publishedVersionId: e.publishedVersionId,
@@ -47,7 +66,15 @@ export const EffectService = {
       ownerId: input.ownerId,
       slug: input.slug,
       name: input.name,
+      prompt: input.prompt,
+      recipeJson: input.recipe ? JSON.stringify(input.recipe) : undefined,
+      tagsJson: input.tags ? JSON.stringify(input.tags) : undefined,
+      visibility: input.visibility,
+      forkedFrom: input.forkedFrom,
     })
+    if (effect.forkedFrom) {
+      await EffectRepository.bumpCount(effect.forkedFrom, 'remixes', 1)
+    }
     return toEffectDto(effect)
   },
 
@@ -58,7 +85,16 @@ export const EffectService = {
         throw new HttpError(409, 'slug_already_taken', 'Slug already taken')
       }
     }
-    await EffectRepository.update(id, input)
+    const data: Partial<
+      Pick<Effect, 'name' | 'slug' | 'prompt' | 'visibility' | 'recipeJson' | 'tagsJson'>
+    > = {}
+    if (input.name !== undefined) data.name = input.name
+    if (input.slug !== undefined) data.slug = input.slug
+    if (input.prompt !== undefined) data.prompt = input.prompt
+    if (input.visibility !== undefined) data.visibility = input.visibility
+    if (input.recipe !== undefined) data.recipeJson = JSON.stringify(input.recipe)
+    if (input.tags !== undefined) data.tagsJson = JSON.stringify(input.tags)
+    await EffectRepository.update(id, data)
     return toEffectDto((await EffectRepository.findById(id))!)
   },
 
