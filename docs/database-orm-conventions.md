@@ -2,6 +2,21 @@
 
 本文件规定 B 站万花筒弹幕原型的数据层实现细节，是[技术方案](./bilibili-kaleidoscope-danmaku-technical-plan.md) §3.1 的展开。技术栈：**TypeORM + better-sqlite3**，实体即 Schema，原型阶段用 `synchronize` 自动建表。所有数据库访问都在 Route Handlers / Server Actions 的服务端完成，浏览器侧不直接接触数据库。
 
+目录约定（服务端代码统一放在根 `server/`，分三层）：
+
+```text
+server/
+  database/
+    data-source.ts      # TypeORM 连接配置（AppDataSource 单例）
+    entities/           # Entity 定义（*.entity.ts）
+  repositories/         # 数据访问封装（*.repository.ts）
+  services/             # 业务逻辑（*.service.ts）
+lib/
+  env.ts                # 环境变量集中读取
+```
+
+分层规则：**Route Handler → Service → Repository → DataSource**。Route 与 Service 都不直接碰 `AppDataSource.getRepository`，所有表读写经 Repository 封装。
+
 ## 1. 选型与原则
 
 | 维度 | 选择 | 说明 |
@@ -16,22 +31,28 @@
 
 ## 2. 连接：DataSource 单例
 
-`lib/server/db.ts` 是全仓唯一的连接定义，惰性初始化、可幂等调用：
+`server/database/data-source.ts` 是全仓唯一的连接定义，惰性初始化、可幂等调用；数据库路径从 `lib/env.ts` 读取，不直接读 `process.env`：
 
 ```ts
-import 'reflect-metadata'            // TypeORM 装饰器元数据，必须最先导入
-import 'better-sqlite3'              // 副作用导入：向 TypeORM 注册 better-sqlite3 驱动
+import 'reflect-metadata' // TypeORM 装饰器元数据，必须最先导入
+import 'better-sqlite3' // 副作用导入：向 TypeORM 注册 better-sqlite3 驱动
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { DataSource } from 'typeorm'
 import type { Logger } from 'typeorm'
-import { User } from '@/lib/server/entities/user.entity'
-import { Session } from '@/lib/server/entities/session.entity'
-import { Effect } from '@/lib/server/entities/effect.entity'
-import { EffectVersion } from '@/lib/server/entities/effectVersion.entity'
-import { Draft } from '@/lib/server/entities/draft.entity'
-import { ApiToken } from '@/lib/server/entities/apiToken.entity'
-import { AppSetting } from '@/lib/server/entities/appSetting.entity'
+import { env } from '@/lib/env'
+import { User } from './entities/user.entity'
+import { Session } from './entities/session.entity'
+import { Effect } from './entities/effect.entity'
+import { EffectVersion } from './entities/effectVersion.entity'
+import { Draft } from './entities/draft.entity'
+import { ApiToken } from './entities/apiToken.entity'
+import { AppSetting } from './entities/appSetting.entity'
 
-const dbPath = process.env.DB_PATH || './data/app.db'
+const dbPath = env.dbPath
+
+// SQLite 不会自动创建父目录，初始化前确保存在
+mkdirSync(dirname(dbPath), { recursive: true })
 
 class StartupLogger implements Logger {
   logQuery(): void {}
@@ -51,7 +72,7 @@ export const AppDataSource = new DataSource({
   type: 'better-sqlite3',
   database: dbPath,
   entities: [User, Session, Effect, EffectVersion, Draft, ApiToken, AppSetting],
-  synchronize: true,                       // 原型期自动同步 Schema；生产关闭并改用迁移
+  synchronize: true, // 原型期自动同步 Schema；生产关闭并改用迁移
   logging: ['schema', 'error', 'warn'],
   logger: new StartupLogger(),
 })
@@ -80,9 +101,9 @@ Next.js 的 `instrumentation.ts` 在服务端进程启动时执行一次，等�
 
 ```ts
 // instrumentation.ts
-export async function register() {
+export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { initDataSource } = await import('@/lib/server/db')
+    const { initDataSource } = await import('@/server/database/data-source')
     await initDataSource()
   }
 }
@@ -100,15 +121,15 @@ export async function register() {
 
   ```ts
   const nextConfig: NextConfig = {
-    serverExternalPackages: ['better-sqlite3'],
+    serverExternalPackages: ["better-sqlite3"],
   }
   ```
 
-- 环境变量只有 `DB_PATH`（默认 `./data/app.db`），`data/` 加入 `.gitignore`；**不使用 `DATABASE_URL`**。
+- 环境变量集中在 `lib/env.ts` 读取：`DB_PATH`（默认 `./data/app.db`）、`SESSION_SECRET` 等；`data/` 加入 `.gitignore`。**不使用 `DATABASE_URL`**。
 
 ## 5. 实体约定
 
-所有实体（`lib/server/entities/*.entity.ts`）遵守同一套约定：
+所有实体（`server/database/entities/*.entity.ts`）遵守同一套约定：
 
 - **命名**：表名/列名一律 `snake_case`（`@Entity({ name })` / `@Column({ name })`），TS 属性 `camelCase`。
 - **约束显式命名**：主键、唯一、索引都给名字——`pk_*` / `uq_*` / `idx_*`。保证 `synchronize` 多次重启 diff 稳定，也方便裸 SQL（如 `ON CONFLICT(...)`）引用。
@@ -133,7 +154,7 @@ export async function register() {
 ## 7. 实体定义示例
 
 ```ts
-// lib/server/entities/user.entity.ts
+// server/database/entities/user.entity.ts
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 @Entity({ name: 'users' })
@@ -157,13 +178,14 @@ export class User {
 ```
 
 ```ts
-// lib/server/entities/session.entity.ts
-import { Column, Entity, PrimaryColumn } from 'typeorm'
+// server/database/entities/session.entity.ts
+import { Column, Entity, Index, PrimaryColumn } from 'typeorm'
 
 @Entity({ name: 'sessions' })
+@Index('idx_sessions_user', ['userId'])
 export class Session {
   @PrimaryColumn({ type: 'text', primaryKeyConstraintName: 'pk_sessions' })
-  id!: string                 // 随机 token，即主键
+  id!: string // 随机 token，即主键
 
   @Column({ name: 'user_id', type: 'integer', nullable: false })
   userId!: number
@@ -177,7 +199,7 @@ export class Session {
 ```
 
 ```ts
-// lib/server/entities/effect.entity.ts —— 草稿/暂存/发布三指针
+// server/database/entities/effect.entity.ts —— 草稿/暂存/发布三指针
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 @Entity({ name: 'effects' })
@@ -215,10 +237,11 @@ export class Effect {
 ```
 
 ```ts
-// lib/server/entities/effectVersion.entity.ts —— 不可变版本记录
+// server/database/entities/effectVersion.entity.ts —— 不可变版本记录
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 @Entity({ name: 'effect_versions' })
+@Index('idx_effect_versions_effect', ['effectId'])
 @Index('uq_effect_versions_effect_version', ['effectId', 'version'], { unique: true })
 export class EffectVersion {
   @PrimaryGeneratedColumn('increment', { type: 'integer', primaryKeyConstraintName: 'pk_effect_versions' })
@@ -228,13 +251,13 @@ export class EffectVersion {
   effectId!: number
 
   @Column({ type: 'text', nullable: false })
-  version!: string            // 语义化版本号，同一 effect 下唯一
+  version!: string // 语义化版本号，同一 effect 下唯一
 
   @Column({ name: 'sha256', type: 'text', nullable: false })
   sha256!: string
 
   @Column({ type: 'text', nullable: false })
-  entry!: string              // 入口模块，如 main.mjs
+  entry!: string // 入口模块，如 main.mjs
 
   @Column({ name: 'size_bytes', type: 'integer', nullable: false })
   sizeBytes!: number
@@ -246,10 +269,10 @@ export class EffectVersion {
   schemaVersion!: string
 
   @Column({ name: 'manifest_json', type: 'text', nullable: false })
-  manifestJson!: string       // 完整 effect.json 快照
+  manifestJson!: string // 完整 effect.json 快照
 
   @Column({ name: 'storage_key', type: 'text', nullable: false })
-  storageKey!: string         // 指向本地 ArtifactStore / 对象存储中的产物
+  storageKey!: string // 指向本地 ArtifactStore / 对象存储中的产物
 
   @Column({ name: 'created_by', type: 'integer', nullable: false })
   createdBy!: number
@@ -260,7 +283,7 @@ export class EffectVersion {
 ```
 
 ```ts
-// lib/server/entities/appSetting.entity.ts —— 通用 key/value 配置
+// server/database/entities/appSetting.entity.ts —— 通用 key/value 配置
 import { Column, Entity, PrimaryColumn } from 'typeorm'
 
 @Entity({ name: 'app_settings' })
@@ -269,7 +292,7 @@ export class AppSetting {
   key!: string
 
   @Column({ type: 'text', default: '{}' })
-  value!: string              // JSON 字符串
+  value!: string // JSON 字符串
 }
 ```
 
@@ -278,43 +301,73 @@ export class AppSetting {
 - `drafts`：网页 ADE 浏览器虚拟文件系统的服务端持久化快照——`effect_id`（可空）、`owner_id`、`snapshot_json`、`updated_at`。
 - `api_tokens`：CLI 经 PKCE / Device Code 换发的访问令牌——`user_id`、`token_hash`（唯一）、`scopes`、`expires_at`（可空）、`revoked_at`（可空）；**只存哈希不存明文**。
 
-## 8. 在 Route Handler 中使用
+## 8. 分层访问：Repository / Service / Route
 
-import 单例与实体，统一走 `.getRepository(Entity)`：
+数据访问分三层，自下而上：`DataSource` → `Repository` → `Service` → `Route Handler`。上层不跨层调用，避免业务逻辑散落到路由里。
+
+**Repository**（`server/repositories/*.repository.ts`）——封装单表的读写，唯一允许接触 `AppDataSource.getRepository` 的地方：
+
+```ts
+// server/repositories/effect.repository.ts
+import { AppDataSource } from '@/server/database/data-source'
+import { Effect } from '@/server/database/entities/effect.entity'
+
+const repo = () => AppDataSource.getRepository(Effect)
+
+export const EffectRepository = {
+  findAll: () => repo().find({ order: { createdAt: 'DESC' } }),
+  findById: (id: number) => repo().findOneBy({ id }),
+  findBySlug: (slug: string) => repo().findOneBy({ slug }),
+  create: (data: Pick<Effect, 'ownerId' | 'slug' | 'name'>) =>
+    repo().save(repo().create(data)),
+}
+```
+
+**Service**（`server/services/*.service.ts`）——业务逻辑：编排 Repository、做校验和跨表操作、抛领域错误：
+
+```ts
+// server/services/effect.service.ts
+import { EffectRepository } from '@/server/repositories/effect.repository'
+
+export const EffectService = {
+  async list() {
+    return EffectRepository.findAll()
+  },
+  async create(input: { ownerId: number; slug: string; name: string }) {
+    if (await EffectRepository.findBySlug(input.slug)) {
+      throw new HttpError(409, 'slug_already_taken', 'Slug already taken')
+    }
+    return EffectRepository.create(input)
+  },
+}
+
+export class HttpError extends Error {
+  constructor(public status: number, public code: string, message: string) {
+    super(message)
+  }
+}
+```
+
+**Route Handler**——只做 HTTP 编排（解析请求、调 Service、组装响应）：
 
 ```ts
 // app/api/effects/route.ts
-import { AppDataSource } from '@/lib/server/db'
-import { Effect } from '@/lib/server/entities/effect.entity'
-import { EffectVersion } from '@/lib/server/entities/effectVersion.entity'
+import { NextResponse } from 'next/server'
+import { EffectService } from '@/server/services/effect.service'
 
 export async function GET() {
-  const effects = await AppDataSource.getRepository(Effect).find({ order: { createdAt: 'DESC' } })
-  return Response.json({ effects })
+  const effects = await EffectService.list()
+  return NextResponse.json({ effects })
 }
-
-export async function POST(req: Request) {
-  const { slug, name } = await req.json()
-  const repo = AppDataSource.getRepository(Effect)
-  if (await repo.findOne({ where: { slug } }))
-    return Response.json({ error: 'slug already taken' }, { status: 409 })
-  const effect = await repo.save({ ownerId: currentUserId, slug, name })
-  return Response.json({ effect })
-}
-
-// 聚合走 createQueryBuilder；需要 SQLite 原生 upsert 时用裸 SQL（ON CONFLICT ... DO UPDATE）
-await AppDataSource.getRepository(EffectVersion)
-  .createQueryBuilder('v')
-  .select('v.version', 'version')
-  .where('v.effectId = :id', { id })
-  .getRawMany()
 ```
+
+聚合走 `createQueryBuilder`，需要 SQLite 原生 upsert 时用裸 SQL（`ON CONFLICT ... DO UPDATE`）；这两种查询同样封装在 Repository 内，不外泄到 Service / Route。
 
 ## 9. 原型期约定与生产演进
 
 **原型期约定**：
 
-- 不写迁移（`synchronize: true` 自动建表）。
+- 不写迁移：仅用 `synchronize: true` 自动建表，不配置 migrations 目录或脚本。
 - 不启用 TypeORM 关系装饰器（外键用普通 `integer` 列）。
 - 不开事务（需要原子操作时再单独引入 `AppDataSource.transaction`）。
 - 改字段就改实体再重启，由 `synchronize` 落库。
@@ -322,5 +375,5 @@ await AppDataSource.getRepository(EffectVersion)
 **生产演进**：
 
 - 把 DataSource 的 `type` 换成 `'postgres'`、关闭 `synchronize`。
-- 用 TypeORM CLI 生成并运行正式迁移（`migration:generate` / `migration:run`）。
-- 业务层 `getRepository` 调用基本不变。
+- 用 TypeORM CLI 生成并运行正式迁移（`migration:generate` / `migration:run`，届时再建 `migrations/` 目录）。
+- 业务层 Repository / Service 调用基本不变。
