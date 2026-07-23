@@ -81,6 +81,13 @@ export async function fetchUserProfile(name: string): Promise<UserProfile | null
   };
 }
 
+/** GET /api/effects/:id —— 单个广场作品详情（含投币 / 收藏数） */
+export async function fetchSquareEffect(id: string): Promise<PublishedEffect | null> {
+  await mockDelay();
+  const item = SQUARE_ITEMS.find((i) => i.id === id);
+  return item ? enrich(item) : null;
+}
+
 /** GET /api/effects/:id/derivatives —— 某作品的二创列表（关联查看） */
 export async function fetchDerivatives(effectId: string): Promise<DerivativeWork[]> {
   await mockDelay();

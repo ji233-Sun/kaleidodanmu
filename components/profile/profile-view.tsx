@@ -166,9 +166,16 @@ export function ProfileView({ name }: { name: string }) {
               key={fx.id}
               className="group overflow-hidden rounded-2xl border border-line bg-card transition-all hover:-translate-y-0.5 hover:border-bili-blue/40 hover:shadow-lg"
             >
-              <EffectThumb recipe={fx.recipe} seedText={fx.id} />
+              <Link href={`/square/${fx.id}`} className="block" title={`查看「${fx.name}」详情`}>
+                <EffectThumb recipe={fx.recipe} seedText={fx.id} />
+              </Link>
               <div className="p-4">
-                <p className="truncate text-sm font-semibold text-ink">{fx.name}</p>
+                <Link
+                  href={`/square/${fx.id}`}
+                  className="block truncate text-sm font-semibold text-ink hover:text-bili-pink"
+                >
+                  {fx.name}
+                </Link>
                 <p className="mt-1 truncate text-xs text-ink-3" title={fx.prompt}>
                   「{fx.prompt}」
                 </p>
@@ -265,9 +272,9 @@ export function ProfileView({ name }: { name: string }) {
                     </Link>
                     <div className="min-w-0 flex-1">
                       <Link
-                        href="/square"
+                        href={`/square/${d.id}`}
                         className="block truncate text-sm font-medium text-ink hover:text-bili-pink"
-                        title="在广场查看"
+                        title="查看作品详情"
                       >
                         {d.name}
                       </Link>

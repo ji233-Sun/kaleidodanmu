@@ -16,6 +16,7 @@ import {
 import { getSquareItem } from "@/lib/square";
 import { hashString } from "@/lib/random";
 import { AgentChat } from "@/components/studio/agent-chat";
+import { CloudPanel } from "@/components/studio/cloud-panel";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { cn } from "@/lib/cn";
 
@@ -219,6 +220,9 @@ function StudioInner() {
               预览使用 Mock 弹幕数据（点播 240 条 / 直播 160 条，固定种子可复现），接入后端后替换为真实弹幕流。
             </p>
           </div>
+
+          {/* 云端版本与发布 */}
+          {effect && <CloudPanel key={`${effect.id}:${effect.updatedAt}`} effect={effect} />}
         </div>
       </div>
     </main>

@@ -1,18 +1,19 @@
-import { AppDataSource } from '@/server/database/data-source'
-import { AppSetting } from '@/server/database/entities/appSetting.entity'
+import { getRepo } from '@/server/database/data-source'
+import type { AppSetting } from '@/server/database/entities/appSetting.entity'
 
-const repo = () => AppDataSource.getRepository(AppSetting)
+// 懒初始化连接并按表名取 Repository（见 data-source.ts 注释）
+const repo = () => getRepo<AppSetting>('app_settings')
 
 export const AppSettingRepository = {
-  findAll: () => repo().find({ order: { key: 'ASC' } }),
-  findByKey: (key: string) => repo().findOneBy({ key }),
+  findAll: async () => (await repo()).find({ order: { key: 'ASC' } }),
+  findByKey: async (key: string) => (await repo()).findOneBy({ key }),
   /** 按 key 插入或更新。 */
   upsert: async (key: string, value: string): Promise<AppSetting> => {
-    const existing = await repo().findOneBy({ key })
+    const existing = await (await repo()).findOneBy({ key })
     if (existing) {
-      await repo().update({ key }, { value })
-      return (await repo().findOneBy({ key }))!
+      await (await repo()).update({ key }, { value })
+      return (await (await repo()).findOneBy({ key }))!
     }
-    return repo().save(repo().create({ key, value }))
+    return (await repo()).save((await repo()).create({ key, value }))
   },
 }

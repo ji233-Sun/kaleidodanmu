@@ -43,6 +43,8 @@ export interface KaleidoEffect {
   forkedFrom?: string;
   /** 是否已分享到广场 */
   shared?: boolean;
+  /** 关联的服务端 Effect id（未同步到云端时为空） */
+  serverId?: number;
 }
 
 /** 广场作品 */

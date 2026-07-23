@@ -61,10 +61,17 @@ export default function SquarePage() {
               key={item.id}
               className="group overflow-hidden rounded-2xl border border-line bg-card transition-all hover:-translate-y-0.5 hover:border-bili-blue/40 hover:shadow-lg"
             >
-              <EffectThumb recipe={item.recipe} seedText={item.id} />
+              <Link href={`/square/${item.id}`} className="block" title={`查看「${item.name}」详情`}>
+                <EffectThumb recipe={item.recipe} seedText={item.id} />
+              </Link>
               <div className="p-4">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-ink">{item.name}</p>
+                  <Link
+                    href={`/square/${item.id}`}
+                    className="truncate text-sm font-semibold text-ink hover:text-bili-pink"
+                  >
+                    {item.name}
+                  </Link>
                   <div className="ml-auto flex flex-none gap-1">
                     {item.tags.slice(0, 2).map((t) => (
                       <span key={t} className="rounded-full bg-fill px-1.5 py-0.5 text-[10px] text-ink-3">
