@@ -1,4 +1,6 @@
-"use client";
+// 本组件仅由客户端组件 app/studio/page.tsx 渲染，无需自带 "use client"；
+// 去掉它可避免被 Next RSC 插件当作 client entry（从而要求 props 可序列化，
+// 对 onApply 等函数回调报 71007 误报）。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
