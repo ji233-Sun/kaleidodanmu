@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "dist/**",
     "data/**",
     "packages/*/dist/**",
+    "packages/cli/**",
     "public/kaleido-runtime/**",
   ]),
 ]);

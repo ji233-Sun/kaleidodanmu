@@ -1,0 +1,63 @@
+name: Publish to npm
+
+# 发布方式：在 GitHub 上 “Create a new release” 并打 tag（如 v0.1.0）。
+# 该 tag 的版本号会被写入两个包，随后自动发布到 npm。
+# 需要在仓库 Settings → Secrets and variables → Actions 配置 secret：NPM_TOKEN（npm Automation token）。
+
+on:
+  release:
+    types: [published]
+
+# 允许手动触发做一次 dry-run（不真正发布）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只做 npm publish --dry-run，不真正发布'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Derive version from release tag
+        if: github.event_name == 'release'
+        run: echo "PKG_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Set package versions
+        if: env.PKG_VERSION != ''
+        run: |
+          pnpm --filter @kaleido/sdk exec npm version "$PKG_VERSION" --no-git-tag-version --allow-same-version
+          pnpm --filter kdanmu exec npm version "$PKG_VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Build SDK and CLI
+        run: |
+          pnpm build:sdk
+          pnpm build:cli
+
+      - name: Publish @kaleido/sdk
+        run: pnpm --filter @kaleido/sdk publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish kdanmu CLI
+        run: pnpm --filter kdanmu publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

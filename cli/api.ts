@@ -58,6 +58,7 @@ export interface ApiClient {
   listEffects(): Promise<EffectDto[]>
   findBySlug(slug: string): Promise<EffectDto | null>
   createEffect(input: { slug: string; name: string }): Promise<EffectDto>
+  updateEffect(effectId: number, input: { visibility?: 'private' | 'public' }): Promise<EffectDto>
   listVersions(effectId: number): Promise<VersionDto[]>
   createVersion(effectId: number, input: CreateVersionInput): Promise<VersionDto>
   publish(effectId: number, versionId: number, channel: 'draft' | 'staging' | 'published'): Promise<EffectDto>
@@ -112,6 +113,10 @@ export function createClient(baseUrlOpt?: string): ApiClient {
     },
     async createEffect(input) {
       const { effect } = await call<{ effect: EffectDto }>('/api/effects', { method: 'POST', json: input })
+      return effect
+    },
+    async updateEffect(effectId, input) {
+      const { effect } = await call<{ effect: EffectDto }>(`/api/effects/${effectId}`, { method: 'PATCH', json: input })
       return effect
     },
     async listVersions(effectId) {

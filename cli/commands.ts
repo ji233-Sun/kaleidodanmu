@@ -45,11 +45,12 @@ export async function withErrors(opts: BaseOpts, fn: () => Promise<void> | void)
   }
 }
 
-/** 定位内置模板目录：优先 KDANMU_TEMPLATE_DIR，其次相对 CLI 产物的仓库内路径。 */
+/** 定位内置模板目录：优先 KDANMU_TEMPLATE_DIR，其次已发布包内的 template/，最后仓库内路径。 */
 function locateTemplate(): string {
   const candidates = [
     process.env.KDANMU_TEMPLATE_DIR,
-    join(__dirname, '..', '..', 'packages', 'template'),
+    join(__dirname, '..', 'template'), // 已发布包布局：dist/index.js → ../template
+    join(__dirname, '..', '..', 'packages', 'template'), // 仓库内开发布局
     join(__dirname, '..', 'packages', 'template'),
   ].filter((p): p is string => Boolean(p))
   for (const dir of candidates) {
@@ -251,10 +252,24 @@ export function publishCmd(opts: PublishOpts): Promise<void> {
     if (!target) throw new Error(`未找到版本 ${opts.version}`)
 
     const effect = await client.publish(link.effectId, target.id, opts.channel)
+    // 发布到 published 视为公开，便于在「播放云端版本」页面匿名查看
+    if (opts.channel === 'published') {
+      await client.updateEffect(link.effectId, { visibility: 'public' })
+    }
     emit(
       opts,
-      { effectId: effect.id, slug: effect.slug, versionId: target.id, version: target.version, channel: opts.channel },
-      [`已将 v${target.version} 设为 ${opts.channel}（effect #${effect.id} · ${effect.slug}）`],
+      {
+        effectId: effect.id,
+        slug: effect.slug,
+        versionId: target.id,
+        version: target.version,
+        channel: opts.channel,
+        url: opts.channel === 'published' ? `${client.baseUrl}/effect/${effect.id}` : undefined,
+      },
+      [
+        `已将 v${target.version} 设为 ${opts.channel}（effect #${effect.id} · ${effect.slug}）`,
+        ...(opts.channel === 'published' ? [`已公开，可访问：${client.baseUrl}/effect/${effect.id}`] : []),
+      ],
     )
   })
 }

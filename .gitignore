@@ -48,6 +48,7 @@ next-env.d.ts
 # build output (tsup CLI 产物)
 /dist
 packages/*/dist
+packages/cli/template
 
 public/*.mp4
 public/kaleido-runtime/

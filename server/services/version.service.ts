@@ -172,4 +172,22 @@ export const VersionService = {
 
     return { version: toVersionDto(version), manifestJson: version.manifestJson, entry, assets }
   },
+
+  /** 按渠道指针解析版本后读取产物。匿名只能读 public 的 published；owner 可读任意渠道。 */
+  async getArtifactByChannel(
+    effectId: number,
+    channel: 'draft' | 'staging' | 'published',
+    viewerId: number | null,
+  ): Promise<VersionArtifactResponse> {
+    const effect = await EffectRepository.findById(effectId)
+    if (!effect) throw new HttpError(404, 'not_found', 'Effect not found')
+    const versionId =
+      channel === 'published'
+        ? effect.publishedVersionId
+        : channel === 'staging'
+          ? effect.stagingVersionId
+          : effect.draftVersionId
+    if (!versionId) throw new HttpError(404, 'not_found', `No ${channel} version`)
+    return this.getArtifact(effectId, versionId, viewerId)
+  },
 }

@@ -2,17 +2,15 @@
   "name": "kaleidodanmu",
   "version": "0.1.0",
   "private": true,
-  "bin": {
-    "kdanmu": "dist/cli/index.js"
-  },
   "scripts": {
     "dev": "next dev",
     "predev": "pnpm build:vendor",
     "build": "next build",
     "prebuild": "pnpm build:vendor",
     "build:cli": "tsup",
+    "build:sdk": "pnpm --filter @kaleido/sdk build",
     "build:vendor": "tsx scripts/build-runtime-vendor.ts",
-    "kdanmu": "node dist/cli/index.js",
+    "kdanmu": "node packages/cli/dist/index.js",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
