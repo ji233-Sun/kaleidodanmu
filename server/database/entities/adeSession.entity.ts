@@ -2,7 +2,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 /**
  * Studio 浏览器的 ADE 会话快照：
- *  - targetKey：来自 URL 的稳定标识（prompt / id / fork / "blank"）
+ *  - targetKey：来自 URL 的稳定标识（创作 session / 作品 id / fork / "blank"）
  *  - payloadJson：聊天记录 + 浏览器虚拟文件系统（effect.json / index.ts）
  * 仅本人可读写；与 Effect 实体解耦，避免历史记录必须先链接云端。
  */

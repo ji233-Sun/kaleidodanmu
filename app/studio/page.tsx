@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Recipe } from "@/lib/types";
 import { defaultRecipe } from "@/lib/recipes";
@@ -10,6 +10,7 @@ import {
   getEffectsServerSnapshot,
   getEffectsSnapshot,
   newEffectId,
+  newStudioSessionId,
   subscribeEffects,
   upsertEffect,
 } from "@/lib/store";
@@ -21,10 +22,12 @@ import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { cn } from "@/lib/cn";
 
 function StudioInner() {
+  const router = useRouter();
   const params = useSearchParams();
   const prompt = params.get("prompt") ?? undefined;
   const id = params.get("id");
   const fork = params.get("fork");
+  const session = params.get("session")?.trim() || null;
 
   const effects = useSyncExternalStore(
     subscribeEffects,
@@ -39,6 +42,7 @@ function StudioInner() {
 
   // 当前编辑的作品 id：?id= 直接取用；?fork= 先复制一份再编辑；?prompt= 首次生成时创建
   const [forkId] = useState<string | null>(() => (fork ? newEffectId() : null));
+  const [fallbackSession] = useState(newStudioSessionId);
   const initialId = id ?? forkId;
   const [createdId, setCreatedId] = useState<string | null>(null);
   const forkCreatedRef = useRef(false);
@@ -46,10 +50,16 @@ function StudioInner() {
   const [agentBusy, setAgentBusy] = useState(false);
   const [effectError, setEffectError] = useState<string | null>(null);
   const [outbox, setOutbox] = useState<string | null>(null);
-  const [danmakuMode, setDanmakuMode] = useState<"live" | "vod">("vod");
-  const [danmakuIntent, setDanmakuIntent] = useState("");
 
   const forkItem = fork ? getSquareItem(fork) : undefined;
+
+  // 兼容直接访问旧式 ?prompt= 链接：补齐实例级会话键，刷新后仍能恢复当前创作。
+  useEffect(() => {
+    if (!prompt || id || session) return;
+    const next = new URLSearchParams(params.toString());
+    next.set("session", fallbackSession);
+    router.replace(`/studio?${next.toString()}`, { scroll: false });
+  }, [fallbackSession, id, params, prompt, router, session]);
 
   // 广场二创：进入页面即复制一份作品到“我的作品”
   useEffect(() => {
@@ -67,14 +77,7 @@ function StudioInner() {
     });
   }, [fork, forkItem, forkId]);
 
-  // 刷新恢复：同一 prompt 的创作会话认领本地已生成的作品，
-  // 避免刷新后作品变孤儿（预览回退默认配方、再次生成重复作品）。
-  const adoptedId = useMemo(() => {
-    if (!prompt || id || fork) return null;
-    return effects.find((e) => e.prompt === prompt)?.id ?? null;
-  }, [effects, prompt, id, fork]);
-
-  const activeId = createdId ?? initialId ?? adoptedId;
+  const activeId = createdId ?? initialId;
   const effect = activeId ? (effects.find((e) => e.id === activeId) ?? null) : null;
 
   // Agent 产出新配方：创建或保存新版本
@@ -111,6 +114,10 @@ function StudioInner() {
       updatedAt: now,
     });
     setCreatedId(newId);
+    const next = new URLSearchParams(params.toString());
+    next.set("id", newId);
+    if (prompt && !session) next.set("session", fallbackSession);
+    router.replace(`/studio?${next.toString()}`, { scroll: false });
   };
 
   const share = () => {
@@ -144,27 +151,15 @@ function StudioInner() {
     );
   }
 
-  const chatKey = prompt ?? activeId ?? "blank";
-  // 会话同步键：prompt 键与作品 id 键双写，换入口后仍能恢复历史
-  const aliasKeys = [
-    ...(activeId && activeId !== chatKey ? [activeId] : []),
-    ...(effect?.prompt && effect.prompt !== chatKey ? [effect.prompt] : []),
-  ];
+  const chatKey = session ?? activeId ?? (prompt ? fallbackSession : "blank");
+  // 新建流程以实例级 session 保存；作品生成后同步到 id 键，供“我的作品”入口恢复。
+  const aliasKeys = activeId && activeId !== chatKey ? [activeId] : [];
 
   const askAgentToFix = () => {
     if (!effectError) return;
     setOutbox(
       `预览运行时出错：${effectError}。请读取 index.ts 检查并修复这个问题，然后重新校验并刷新预览。`,
     );
-  };
-
-  const applyDanmakuIntent = () => {
-    const intent = danmakuIntent.trim();
-    if (!intent) return;
-    setOutbox(
-      `${danmakuMode === "live" ? "以直播弹幕为语境" : "以点播时间线为语境"}，请把弹幕编排成：${intent}。保留现有画面风格，并让弹幕成为主要视觉反馈。`,
-    );
-    setDanmakuIntent("");
   };
 
   return (
@@ -232,7 +227,7 @@ function StudioInner() {
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-bili-pink border-t-transparent" />
               Agent 正在生成效果，完成后会在这里展示预览…
             </div>
-          ) : (
+          ) : effect ? (
             <KaleidoPlayer
               recipe={recipe}
               effectSource={effect?.entrySource}
@@ -240,52 +235,11 @@ function StudioInner() {
               title={effect?.name ?? "Canvas 预览"}
               onEffectError={setEffectError}
             />
+          ) : (
+            <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-line bg-card text-sm text-ink-3">
+              等待 Agent 生成预览…
+            </div>
           )}
-
-          <section className="rounded-xl border border-line bg-card p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-bili-pink">弹幕编排</p>
-                <h2 className="mt-1 text-base font-semibold text-ink">先定义弹幕如何出现，再让 Canvas 回应它</h2>
-              </div>
-              <div className="flex rounded-lg bg-fill p-1 text-xs">
-                {(["vod", "live"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setDanmakuMode(mode)}
-                    className={cn(
-                      "rounded-md px-3 py-1.5 transition-colors",
-                      danmakuMode === mode ? "bg-card font-medium text-bili-pink shadow-sm" : "text-ink-3 hover:text-ink-2",
-                    )}
-                  >
-                    {mode === "vod" ? "点播时间线" : "直播现场"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-              <input
-                value={danmakuIntent}
-                onChange={(e) => setDanmakuIntent(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && applyDanmakuIntent()}
-                placeholder="例如：高赞弹幕聚成一条光带，争议弹幕分裂成两侧"
-                className="h-10 rounded-lg border border-line bg-page px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-bili-pink"
-              />
-              <button
-                onClick={applyDanmakuIntent}
-                disabled={!danmakuIntent.trim() || agentBusy}
-                className="h-10 rounded-lg bg-bili-pink px-4 text-sm font-medium text-white transition-colors hover:bg-bili-pink-hover disabled:opacity-40"
-              >
-                交给 Agent 编排
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-3">
-              <span className="rounded-full bg-bili-pink-light px-2.5 py-1 text-bili-pink">弹幕密度 {Math.round(recipe.density * 100)}%</span>
-              <span className="rounded-full bg-bili-blue-light px-2.5 py-1 text-bili-blue">{recipe.symmetry} 条视觉轨道</span>
-              <span className="rounded-full bg-bili-purple-light px-2.5 py-1 text-bili-purple">{recipe.motion} 运动响应</span>
-              <span className="rounded-full border border-line px-2.5 py-1">{danmakuMode === "live" ? "实时消息流" : "按时间触发"}</span>
-            </div>
-          </section>
 
           {/* 运行错误：显著提示并可一键让 Agent 修复 */}
           {!agentBusy && effectError && (

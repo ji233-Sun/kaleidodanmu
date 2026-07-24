@@ -180,7 +180,8 @@ export default defineEffect({
       onDanmaku(event) {
         const baseCap = viewport.width < 480 ? 4 : 8;
         const cap = Math.max(3, Math.floor(baseCap * recipe.density));
-        if (active.size >= cap) remove(active.values().next().value);
+        // 容量压力不能让仍在播放的旧对象突然消失；本次新事件直接丢弃。
+        if (active.size >= cap) return;
 
         const label = createLabel(event);
         const group = new THREE.Group();

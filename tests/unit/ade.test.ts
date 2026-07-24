@@ -60,6 +60,11 @@ describe("browser Effect project", () => {
     const guide = project.execute({ id: "1", name: "read_file", arguments: JSON.stringify({ path: ADE_GUIDE_FILE }) });
     expect(guide.result).toContain("onDanmaku");
     expect(guide.result).toContain("DanmakuEvent");
+    expect(guide.result).toContain("x < endX");
+    expect(guide.result).toContain("delta / 1000");
+    expect(guide.result).toContain("textWidth / 2");
+    expect(guide.result).toContain("完整穿屏");
+    expect(guide.result).toContain("容量限制不能删除仍在屏幕内的旧弹幕");
     expect(
       project.execute({ id: "2", name: "write_file", arguments: JSON.stringify({ path: ADE_GUIDE_FILE, content: "x" }) }).result,
     ).toContain("只读");
@@ -98,6 +103,7 @@ describe("Effect Runtime source contract", () => {
     const body = transformEffectSource(DEFAULT_EFFECT_SOURCE);
     expect(body).not.toContain('from "three"');
     expect(body).toContain("return defineEffect({");
+    expect(DEFAULT_EFFECT_SOURCE).not.toContain("remove(active.values().next().value)");
   });
 
   it("rejects unbundled dependencies and parent-page access", () => {

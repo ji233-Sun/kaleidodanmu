@@ -15,6 +15,7 @@ import { OAuthCode } from './entities/oauthCode.entity'
 import { AppSetting } from './entities/appSetting.entity'
 import { EffectInteraction } from './entities/effectInteraction.entity'
 import { AdeSession } from './entities/adeSession.entity'
+import { LlmConfig } from './entities/llmConfig.entity'
 const dbPath = env.dbPath
 
 // SQLite 不会自动创建父目录，初始化前确保存在
@@ -92,6 +93,7 @@ function createDataSource(): DataSource {
       OAuthCode,
       AppSetting,
       AdeSession,
+      LlmConfig,
     ],
     synchronize: true, // 原型期自动同步 Schema；生产关闭并改用迁移
     logging: ['schema', 'error', 'warn'],

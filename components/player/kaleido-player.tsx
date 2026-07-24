@@ -8,7 +8,6 @@ import { EffectSandbox, type EffectSandboxHandle } from "@/components/player/eff
 import { cn } from "@/lib/cn";
 
 const SPEEDS = [2, 1.5, 1.25, 1, 0.75, 0.5];
-const LANES = 8;
 
 function fmt(s: number) {
   if (!isFinite(s)) s = 0;
@@ -34,8 +33,6 @@ export function KaleidoPlayer({
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const effectRef = useRef<EffectSandboxHandle>(null);
-  const dmLayerRef = useRef<HTMLDivElement>(null);
-  const laneBusyRef = useRef<number[]>(new Array(LANES).fill(0));
   const vodIdxRef = useRef(0);
   const vodLastRef = useRef(0);
   const liveClockRef = useRef(0);
@@ -50,7 +47,6 @@ export function KaleidoPlayer({
   const [speedOpen, setSpeedOpen] = useState(false);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [dmOn, setDmOn] = useState(true);
   const [source, setSource] = useState<"vod" | "live">("vod");
   const [fps, setFps] = useState(0);
   const [effectError, setEffectError] = useState<string | null>(null);
@@ -64,68 +60,10 @@ export function KaleidoPlayer({
   const liveEvents = useMemo(() => generateLiveDanmaku(seed), [seed]);
 
   /* ---------- danmaku emission ---------- */
-  const fireClassic = useCallback((ev: DanmakuEvent) => {
-    const layer = dmLayerRef.current;
-    const video = videoRef.current;
-    if (!layer || !video) return;
-    const now = performance.now();
-    let lane = -1;
-    for (let i = 0; i < LANES; i++) {
-      if (laneBusyRef.current[i] < now) {
-        lane = i;
-        break;
-      }
-    }
-    if (lane === -1) lane = Math.floor(Math.random() * LANES);
-    laneBusyRef.current[lane] = now + 1200;
-
-    const el = document.createElement("div");
-    el.textContent = ev.text;
-    el.className =
-      "absolute left-full whitespace-nowrap font-bold will-change-transform pointer-events-none";
-    el.style.top = `${(lane / LANES) * 86 + 2}%`;
-    el.style.fontSize = `${ev.fontSize}px`;
-    el.style.color = "#" + ev.color.toString(16).padStart(6, "0");
-    el.style.textShadow = "0 0 4px rgba(0,0,0,.8)";
-    layer.appendChild(el);
-
-    const maxVisible = layer.clientWidth < 480 ? 10 : 24;
-    while (layer.childElementCount > maxVisible) layer.firstElementChild?.remove();
-
-    const w = layer.clientWidth;
-    const ew = el.offsetWidth;
-    const duration = layer.clientWidth < 480 ? 5000 : 7000;
-    let start = performance.now();
-    let pausedAt: number | null = null;
-    const frame = (t: number) => {
-      if (!el.isConnected) return;
-      if (video.paused) {
-        if (pausedAt === null) pausedAt = t;
-        requestAnimationFrame(frame);
-        return;
-      }
-      if (pausedAt !== null) {
-        start += t - pausedAt;
-        pausedAt = null;
-      }
-      const p = (t - start) / duration;
-      if (p >= 1) {
-        el.remove();
-        return;
-      }
-      el.style.transform = `translateX(${-(w + ew) * p}px)`;
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
+  // 弹幕统一交给特效层渲染，不再叠加经典原文弹幕
+  const emit = useCallback((ev: DanmakuEvent) => {
+    effectRef.current?.emit(ev);
   }, []);
-
-  const emit = useCallback(
-    (ev: DanmakuEvent) => {
-      effectRef.current?.emit(ev);
-      fireClassic(ev);
-    },
-    [fireClassic],
-  );
 
   /* ---------- scheduling loop ---------- */
   useEffect(() => {
@@ -144,7 +82,6 @@ export function KaleidoPlayer({
           // seek 回退或循环：按时间线重放
           vodIdxRef.current = 0;
           effectRef.current?.reset();
-          dmLayerRef.current?.replaceChildren();
         } else if (!v.paused) {
           while (
             vodIdxRef.current < vodEvents.length &&
@@ -188,7 +125,6 @@ export function KaleidoPlayer({
     liveIdxRef.current = 0;
     liveClockRef.current = 0;
     effectRef.current?.reset();
-    dmLayerRef.current?.replaceChildren();
   }, [source]);
 
   /* ---------- video events ---------- */
@@ -304,12 +240,6 @@ export function KaleidoPlayer({
           onError={setEffectError}
         />
       </div>
-
-      {/* 经典弹幕层 */}
-      <div
-        ref={dmLayerRef}
-        className={cn("pointer-events-none absolute inset-0 z-[6] overflow-hidden", !dmOn && "hidden")}
-      />
 
       {/* 顶栏 */}
       <div
@@ -450,28 +380,6 @@ export function KaleidoPlayer({
               </div>
             )}
           </div>
-
-          {/* 弹幕开关 */}
-          <button
-            onClick={() => setDmOn((v) => !v)}
-            className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-white transition-colors hover:bg-white/12"
-            title="经典弹幕层开关"
-          >
-            弹幕
-            <span
-              className={cn(
-                "relative h-4.5 w-8 rounded-full transition-colors",
-                dmOn ? "bg-bili-blue" : "bg-white/30",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                  dmOn && "translate-x-3.5",
-                )}
-              />
-            </span>
-          </button>
 
           {/* 音量 */}
           <div className="group/vol hidden items-center sm:flex">

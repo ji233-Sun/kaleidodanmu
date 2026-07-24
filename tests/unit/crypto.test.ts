@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword, verifyPassword, randomToken } from '@/server/utils/crypto'
+import { hashPassword, verifyPassword, randomToken, encryptSecret, decryptSecret } from '@/server/utils/crypto'
 
 describe('crypto utils', () => {
   it('hashPassword 产出 salt:hex 且不含明文', () => {
@@ -31,5 +31,27 @@ describe('crypto utils', () => {
     const b = randomToken()
     expect(a).not.toBe(b)
     expect(a.length).toBeGreaterThan(20)
+  })
+
+  it('encryptSecret/decryptSecret 往返还原明文', () => {
+    const plaintext = 'sk-test-key-1234567890abcd'
+    expect(decryptSecret(encryptSecret(plaintext))).toBe(plaintext)
+  })
+
+  it('encryptSecret 密文不含明文且每次不同（随机 iv）', () => {
+    const a = encryptSecret('sk-secret')
+    const b = encryptSecret('sk-secret')
+    expect(a).toMatch(/^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+    expect(a).not.toBe(b)
+    expect(a).not.toContain('sk-secret')
+  })
+
+  it('decryptSecret 对篡改的密文抛错（GCM 校验失败）', () => {
+    const payload = encryptSecret('sk-secret')
+    const [iv, tag, ciphertext] = payload.split(':')
+    // 翻转密文最后一个 hex 字符
+    const tampered = `${iv}:${tag}:${ciphertext.slice(0, -1)}${ciphertext.endsWith('0') ? '1' : '0'}`
+    expect(() => decryptSecret(tampered)).toThrow()
+    expect(() => decryptSecret('not-a-valid-payload')).toThrow()
   })
 })

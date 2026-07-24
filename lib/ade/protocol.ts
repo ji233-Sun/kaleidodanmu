@@ -20,6 +20,8 @@ const AgentMessageSchema = z.discriminatedUnion('role', [
       content: z.string(),
       toolCalls: z.array(ToolCallSchema).max(4),
       reasoningContent: z.string().optional(),
+      // Anthropic 思考块的签名：开启 thinking 后回传历史时必须原样带回，否则上游 400
+      reasoningSignature: z.string().optional(),
     })
     .strict(),
   z
@@ -54,6 +56,7 @@ export const AdeAgentTurnResponseSchema = z
         content: z.string(),
         toolCalls: z.array(ToolCallSchema).max(4),
         reasoningContent: z.string().optional(),
+        reasoningSignature: z.string().optional(),
       })
       .strict(),
   })

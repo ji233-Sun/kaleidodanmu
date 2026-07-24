@@ -54,15 +54,9 @@ function summarizeCall(call: AdeToolCall): string {
   }
 }
 
-/** 把聊天记录压缩成发给 LLM 的 messages（首个 user 是当前指令，后续是历史摘要）。 */
-function buildTurnMessages(currentInstruction: string, history: ChatMsg[]): AdeAgentMessage[] {
-  const tail = history.slice(-MAX_AGENT_ROUNDS * 2);
-  return [
-    { role: "user", content: currentInstruction },
-    ...tail
-      .filter((m): m is { role: "assistant"; text: string } => m.role === "assistant" && m.text.length > 0)
-      .map((m) => ({ role: "assistant" as const, content: m.text, toolCalls: [] })),
-  ];
+/** 每个用户指令开启独立上游轮次；工程状态由浏览器文件提供，本轮工具链在循环中追加。 */
+function buildTurnMessages(currentInstruction: string): AdeAgentMessage[] {
+  return [{ role: "user", content: currentInstruction }];
 }
 
 /** 恢复历史时把「生成中」残留规整为「已中断」，避免刷新后永远转圈。 */
@@ -105,7 +99,7 @@ export function AgentChat({
   intro?: string;
   /** 用于服务端历史会话的稳定标识；同一会话在刷新前后保持一致。 */
   targetKey: string;
-  /** 需要同步写入的其他会话键（如作品 id / 原始 prompt），保证换入口刷新也能恢复。 */
+  /** 需要同步写入的其他会话键（如作品 id），保证换入口后仍能恢复。 */
   aliasKeys?: string[];
   /** 外部注入的指令（如「让 Agent 修复」按钮）；消费后经 onExternalPromptConsumed 确认。 */
   externalPrompt?: string | null;
@@ -207,7 +201,7 @@ export function AgentChat({
       setBusyState(true);
       const project = ensureProject(currentRecipe, currentEntrySource);
       // 服务端只会保存 user/assistant 文本；toolCalls 仅用于本轮驱动 LLM。
-      const messages: AdeAgentMessage[] = buildTurnMessages(instruction, msgs);
+      const messages: AdeAgentMessage[] = buildTurnMessages(instruction);
       let emptyStreak = 0;
       let lastRoundApplied = false;
       try {
@@ -228,6 +222,8 @@ export function AgentChat({
                 role: "assistant",
                 content: "（上一轮输出在思考阶段被长度上限截断。请收敛思考，直接发起下一步工具调用。）",
                 toolCalls: [],
+                reasoningContent: message.reasoningContent,
+                reasoningSignature: message.reasoningSignature,
               });
               continue;
             }
@@ -242,6 +238,7 @@ export function AgentChat({
             content: message.content,
             toolCalls: message.toolCalls,
             reasoningContent: message.reasoningContent,
+            reasoningSignature: message.reasoningSignature,
           };
           messages.push(assistantEntry);
           let roundApplied = false;
@@ -301,7 +298,7 @@ export function AgentChat({
         setBusyState(false);
       }
     },
-    [ensureProject, msgs, onApply, push, setBusyState, user],
+    [ensureProject, onApply, push, setBusyState, user],
   );
 
   // 首次挂载：拉取服务端历史，恢复 msgs 与工程文件。

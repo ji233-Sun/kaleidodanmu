@@ -71,3 +71,7 @@ export function deleteEffect(id: string) {
 export function newEffectId(): string {
   return `fx-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+export function newStudioSessionId(): string {
+  return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}

@@ -12,6 +12,7 @@ import type {
   TokenListResponse,
 } from "@/types";
 import { Alert, Badge, Button, Input, Spinner, Tabs } from "@/components/ui";
+import { LlmPanel } from "@/components/profile/llm-panel";
 
 /** 授权 scope 目录（与 app/oauth/authorize/page.tsx 的 SCOPE_CATALOG 对齐） */
 const SCOPE_CATALOG: Record<string, string> = {
@@ -430,6 +431,7 @@ export default function SettingsPage() {
         defaultValue="tokens"
         items={[
           { value: "tokens", label: "API Token", content: <TokenPanel /> },
+          { value: "llm", label: "模型", content: <LlmPanel /> },
           { value: "settings", label: "应用设置", content: <SettingsPanel /> },
         ]}
       />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { newStudioSessionId } from "@/lib/store";
 
 const EXAMPLES = [
   "玻璃碎裂成六瓣，弹幕沿碎片边缘流动",
@@ -18,7 +19,11 @@ export default function Home() {
   const create = (text: string) => {
     const p = text.trim();
     if (!p) return;
-    router.push(`/studio?prompt=${encodeURIComponent(p)}`);
+    const params = new URLSearchParams({
+      prompt: p,
+      session: newStudioSessionId(),
+    });
+    router.push(`/studio?${params.toString()}`);
   };
 
   return (

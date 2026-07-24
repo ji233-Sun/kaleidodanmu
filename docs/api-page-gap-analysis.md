@@ -104,7 +104,7 @@
 
 ### 7. LLM 代理转发接口（技术方案 §9 规划）
 
-- 规划中的 `app/api/llm/proxy`（转发 + 限流，不执行代码）未实现。
+- `app/api/llm/proxy` 已实现 ✅：转发 + 限流，不执行代码；支持用户自带模型（BYOK，设置页「模型」页签，OpenAI Chat / OpenAI Responses / Anthropic 三协议），未配置时回退环境变量。
 - 目前 `lib/agent.ts` 为纯前端 Mock Agent，不经过任何服务端。
 
 ---

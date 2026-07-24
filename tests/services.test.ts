@@ -184,4 +184,121 @@ describe('services', () => {
       expect(after[0].revokedAt).toBeTruthy()
     })
   })
+
+  describe('LlmConfigService', () => {
+    it('upsert / getDto：不回传完整 key，preview 只含末 4 位', async () => {
+      const u = await createUser()
+      const dto = await b.LlmConfigService.upsert(u.id, {
+        provider: 'openai-chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: 'sk-user-secret-abcd',
+        model: 'deepseek-chat',
+      })
+      expect(dto.provider).toBe('openai-chat')
+      expect(dto.apiKeyPreview).toBe('••••abcd')
+      expect(JSON.stringify(dto)).not.toContain('sk-user-secret-abcd')
+
+      const got = await b.LlmConfigService.getDto(u.id)
+      expect(got?.model).toBe('deepseek-chat')
+      expect(got?.apiKeyPreview).toBe('••••abcd')
+    })
+
+    it('baseUrl 留空时按 provider 填默认值', async () => {
+      const u = await createUser()
+      const dto = await b.LlmConfigService.upsert(u.id, {
+        provider: 'anthropic',
+        apiKey: 'sk-ant-9999',
+        model: 'claude-sonnet-4-5',
+      })
+      expect(dto.baseUrl).toBe('https://api.anthropic.com')
+    })
+
+    it('落库的是密文而非明文 key', async () => {
+      const u = await createUser()
+      await b.LlmConfigService.upsert(u.id, {
+        provider: 'openai-chat',
+        apiKey: 'sk-plain-secret-wxyz',
+        model: 'gpt-4o-mini',
+      })
+      const row = await b.LlmConfigRepository.findByUser(u.id)
+      expect(row).toBeTruthy()
+      expect(row!.apiKeyEncrypted).not.toContain('sk-plain-secret-wxyz')
+      expect(b.decryptSecret(row!.apiKeyEncrypted)).toBe('sk-plain-secret-wxyz')
+    })
+
+    it('resolveForUser 返回解密后的完整配置；未配置返回 null', async () => {
+      const u = await createUser()
+      expect(await b.LlmConfigService.resolveForUser(u.id)).toBe(null)
+      await b.LlmConfigService.upsert(u.id, {
+        provider: 'openai-responses',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-resolved-key-efgh',
+        model: 'gpt-5',
+      })
+      const resolved = await b.LlmConfigService.resolveForUser(u.id)
+      expect(resolved).toEqual({
+        provider: 'openai-responses',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-resolved-key-efgh',
+        model: 'gpt-5',
+      })
+    })
+
+    it('thinking 档位随配置保存与解析；缺省不出现于 DTO', async () => {
+      const u = await createUser()
+      const dto = await b.LlmConfigService.upsert(u.id, {
+        provider: 'anthropic',
+        apiKey: 'sk-ant-think-1234',
+        model: 'claude-sonnet-4-5',
+        thinking: 'high',
+      })
+      expect(dto.thinking).toBe('high')
+      expect((await b.LlmConfigService.getDto(u.id))?.thinking).toBe('high')
+      expect((await b.LlmConfigService.resolveForUser(u.id))?.thinking).toBe('high')
+
+      // 覆盖为不设置思考参数
+      const cleared = await b.LlmConfigService.upsert(u.id, {
+        provider: 'anthropic',
+        apiKey: 'sk-ant-think-1234',
+        model: 'claude-sonnet-4-5',
+      })
+      expect(cleared.thinking).toBeUndefined()
+      expect((await b.LlmConfigService.resolveForUser(u.id))?.thinking).toBeUndefined()
+    })
+
+    it('apiKey 留空 = 保留已保存的 key；首次保存缺 key 抛 400', async () => {
+      const u = await createUser()
+      // 首次保存必须带 key
+      await expect(
+        b.LlmConfigService.upsert(u.id, { provider: 'openai-chat', model: 'm1' }),
+      ).rejects.toThrowError(expect.objectContaining({ status: 400, code: 'llm_api_key_required' }))
+
+      await b.LlmConfigService.upsert(u.id, { provider: 'openai-chat', apiKey: 'sk-keep-me-5678', model: 'm1' })
+      // 留空保存：只改 model，key 不变
+      const dto = await b.LlmConfigService.upsert(u.id, { provider: 'openai-chat', apiKey: '', model: 'm2' })
+      expect(dto.model).toBe('m2')
+      expect(dto.apiKeyPreview).toBe('••••5678')
+      expect(b.decryptSecret((await b.LlmConfigRepository.findByUser(u.id))!.apiKeyEncrypted)).toBe('sk-keep-me-5678')
+    })
+
+    it('upsert 覆盖旧配置（每用户单行），remove 删除', async () => {
+      const u = await createUser()
+      await b.LlmConfigService.upsert(u.id, { provider: 'openai-chat', apiKey: 'sk-first-aaaa', model: 'm1' })
+      const dto = await b.LlmConfigService.upsert(u.id, { provider: 'anthropic', apiKey: 'sk-second-bbbb', model: 'm2' })
+      expect(dto.provider).toBe('anthropic')
+      expect(dto.model).toBe('m2')
+      expect(dto.apiKeyPreview).toBe('••••bbbb')
+      expect((await b.LlmConfigRepository.findByUser(u.id))?.model).toBe('m2')
+
+      await b.LlmConfigService.remove(u.id)
+      expect(await b.LlmConfigService.getDto(u.id)).toBe(null)
+    })
+
+    it('用户间配置互相隔离', async () => {
+      const u1 = await createUser()
+      const u2 = await createUser()
+      await b.LlmConfigService.upsert(u1.id, { provider: 'openai-chat', apiKey: 'sk-u1-key-cccc', model: 'm1' })
+      expect(await b.LlmConfigService.getDto(u2.id)).toBe(null)
+    })
+  })
 })
