@@ -9,6 +9,11 @@ import { dirname, join } from 'node:path'
 // 本地测试用环境变量 KDANMU_BASE_URL=http://localhost:3000 覆盖，或用 --base-url。
 export const DEFAULT_BASE_URL = 'https://kdanmu.hnrobert.space'
 
+// kdanmu Agent Skill 的发布位置（公开 GitHub 仓库），供 `npx skills add` 安装。
+// 见 skills/<SKILL_NAME>/SKILL.md。
+export const SKILL_REPO = 'ji233-Sun/kaleidodanmu'
+export const SKILL_NAME = 'kdanmu'
+
 export interface Credentials {
   baseUrl: string
   token: string

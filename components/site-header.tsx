@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/", label: "创作" },
   { href: "/mine", label: "我的作品" },
   { href: "/square", label: "创作广场" },
+  { href: "/get-started", label: "开始使用" },
 ];
 
 export function SiteHeader() {

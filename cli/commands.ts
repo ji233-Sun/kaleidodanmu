@@ -5,6 +5,7 @@ import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'no
 import { basename, join, resolve } from 'node:path'
 import { collectAndValidate, runViteBuild, runViteDev, type Artifact } from './build'
 import { createClient, CliApiError, type EffectDto } from './api'
+import { resolveBaseUrl, SKILL_NAME, SKILL_REPO } from './config'
 import {
   hasManifest,
   readLink,
@@ -86,7 +87,10 @@ export function initCmd(name: string, opts: BaseOpts): Promise<void> {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
     }
 
-    emit(opts, { path: target, slug }, [
+    const base = resolveBaseUrl(opts.baseUrl)
+    const installUrl = `${base}/get-started`
+    const skillInstall = `npx -y skills add ${SKILL_REPO} --skill ${SKILL_NAME} -g -y`
+    emit(opts, { path: target, slug, installUrl, skillInstall }, [
       `已创建 Effect 工程：${target}`,
       `slug：${slug}`,
       '',
@@ -96,6 +100,10 @@ export function initCmd(name: string, opts: BaseOpts): Promise<void> {
       '  kdanmu dev       # 本地预览',
       '  kdanmu build     # 打包',
       '  kdanmu upload    # 上传为草稿版本（需先 kdanmu login）',
+      '',
+      '让 AI 助手（Claude Code / Codex / Cursor 等）帮你写效果？装上 kdanmu skill：',
+      `  ${skillInstall}`,
+      `  图文教程：${installUrl}`,
     ])
   })
 }
