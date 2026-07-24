@@ -9,6 +9,8 @@
         "efgh",
         "Elem",
         "elems",
+        "favorite",
+        "favorites",
         "fontsize",
         "gsap",
         "kaleido",
@@ -17,6 +19,10 @@
         "nums",
         "OPFS",
         "PKCE",
+        "Turbopack",
+        "vasset",
+        "vguard",
+        "vpriv",
         "wxyz"
     ],
     "markdownlint.config": {

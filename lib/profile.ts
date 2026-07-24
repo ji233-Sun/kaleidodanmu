@@ -154,7 +154,7 @@ export async function fetchMyReactions(
   kind: InteractionKind,
 ): Promise<PublishedEffect[]> {
   const data = await apiFetch<ReactionListResponse>(`/api/users/me/reactions?kind=${kind}`);
-  return data.items.map(effectOf);
+  return data.items.map(effectOf).filter((e): e is PublishedEffect => e !== null);
 }
 
 /** 我关注的用户列表。 */
