@@ -44,11 +44,14 @@ export const EffectRepository = {
       .getMany(),
 
   findDerivatives: async (parentId: number, limit: number) =>
-    (await repo()).find({
-      where: { forkedFrom: parentId },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    }),
+    (await repo())
+      .createQueryBuilder('e')
+      .where('e.forkedFrom = :parentId', { parentId })
+      .andWhere('e.visibility = :visibility', { visibility: 'public' })
+      .andWhere('e.publishedVersionId IS NOT NULL')
+      .orderBy('e.createdAt', 'DESC')
+      .take(limit)
+      .getMany(),
 
   create: async (data: {
     ownerId: number

@@ -64,9 +64,13 @@ export function SiteHeader() {
               >
                 设置
               </Link>
-              <span className="hidden max-w-40 truncate text-xs text-ink-3 sm:inline" title={user.email}>
-                {user.email}
-              </span>
+              <Link
+                href={`/u/${encodeURIComponent(user.name)}`}
+                className="hidden max-w-40 truncate text-xs text-ink-3 hover:text-bili-pink sm:inline"
+                title={user.email}
+              >
+                {user.displayName}
+              </Link>
               <button
                 onClick={handleLogout}
                 className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-bili-pink hover:text-bili-pink"

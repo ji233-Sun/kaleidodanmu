@@ -14,15 +14,19 @@ import {
   subscribeEffects,
   upsertEffect,
 } from "@/lib/store";
-import { getSquareItem } from "@/lib/square";
+import { fetchSquareEffect, type PublishedEffect } from "@/lib/profile";
+import { apiFetch, ApiError } from "@/lib/api";
 import { hashString } from "@/lib/random";
 import { AgentChat } from "@/components/studio/agent-chat";
 import { CloudPanel } from "@/components/studio/cloud-panel";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { cn } from "@/lib/cn";
+import { useSession } from "@/lib/session";
+import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
 
 function StudioInner() {
   const router = useRouter();
+  const { user } = useSession();
   const params = useSearchParams();
   const prompt = params.get("prompt") ?? undefined;
   const id = params.get("id");
@@ -50,8 +54,20 @@ function StudioInner() {
   const [agentBusy, setAgentBusy] = useState(false);
   const [effectError, setEffectError] = useState<string | null>(null);
   const [outbox, setOutbox] = useState<string | null>(null);
+  const autoCloudRef = useRef(new Set<string>());
 
-  const forkItem = fork ? getSquareItem(fork) : undefined;
+  const [forkItem, setForkItem] = useState<PublishedEffect | null | undefined>(
+    fork ? undefined : null,
+  );
+
+  useEffect(() => {
+    if (!fork) return;
+    let cancelled = false;
+    fetchSquareEffect(fork)
+      .then((item) => !cancelled && setForkItem(item))
+      .catch(() => !cancelled && setForkItem(null));
+    return () => { cancelled = true; };
+  }, [fork]);
 
   // 兼容直接访问旧式 ?prompt= 链接：补齐实例级会话键，刷新后仍能恢复当前创作。
   useEffect(() => {
@@ -79,6 +95,71 @@ function StudioInner() {
 
   const activeId = createdId ?? initialId;
   const effect = activeId ? (effects.find((e) => e.id === activeId) ?? null) : null;
+
+  // Logged-in work is durable by default: establish the cloud Effect and Draft as soon as a local work exists.
+  useEffect(() => {
+    if (!user || !effect || effect.serverId || agentBusy || autoCloudRef.current.has(effect.id)) return;
+    autoCloudRef.current.add(effect.id);
+    const slug = `fx-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    void apiFetch<{ effect: { id: number } }>("/api/effects", {
+      method: "POST",
+      json: {
+        slug,
+        name: effect.name,
+        prompt: effect.prompt,
+        recipe: effect.recipe,
+        ...(effect.forkedFrom && /^\d+$/.test(effect.forkedFrom)
+          ? { forkedFrom: Number(effect.forkedFrom) }
+          : {}),
+      },
+    }).then(async ({ effect: cloud }) => {
+      const linked = { ...effect, serverId: cloud.id };
+      upsertEffect(linked);
+      await apiFetch(`/api/effects/${cloud.id}/draft`, {
+        method: "PUT",
+        json: {
+          snapshotJson: JSON.stringify({
+            prompt: linked.prompt,
+            recipe: linked.recipe,
+            entrySource: linked.entrySource ?? DEFAULT_EFFECT_SOURCE,
+            version: linked.version,
+          }),
+        },
+      });
+      setToast("草稿已自动保存到云端");
+      setTimeout(() => setToast(""), 3000);
+    }).catch((error: unknown) => {
+      autoCloudRef.current.delete(effect.id);
+      setToast(error instanceof Error ? `云端自动保存失败：${error.message}` : "云端自动保存失败");
+      setTimeout(() => setToast(""), 4000);
+    });
+  }, [agentBusy, effect, user]);
+
+  useEffect(() => {
+    if (!user || !effect?.serverId || agentBusy) return;
+    const timer = window.setTimeout(() => {
+      const snapshotJson = JSON.stringify({
+        prompt: effect.prompt,
+        recipe: effect.recipe,
+        entrySource: effect.entrySource ?? DEFAULT_EFFECT_SOURCE,
+        version: effect.version,
+      });
+      void Promise.all([
+        apiFetch(`/api/effects/${effect.serverId}`, {
+          method: "PATCH",
+          json: { name: effect.name, prompt: effect.prompt, recipe: effect.recipe },
+        }),
+        apiFetch(`/api/effects/${effect.serverId}/draft`, {
+          method: "PUT",
+          json: { snapshotJson },
+        }),
+      ]).catch((error: unknown) => {
+        setToast(error instanceof Error ? `云端同步失败：${error.message}` : "云端同步失败");
+        window.setTimeout(() => setToast(""), 4000);
+      });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [agentBusy, effect, user]);
 
   // Agent 产出新配方：创建或保存新版本
   const handleApply = (recipe: Recipe, name?: string, _changes?: string[], entrySource?: string) => {
@@ -120,11 +201,30 @@ function StudioInner() {
     router.replace(`/studio?${next.toString()}`, { scroll: false });
   };
 
-  const share = () => {
-    if (!effect) return;
-    upsertEffect({ ...effect, shared: true });
-    setToast("已分享到创作广场（Mock，接入后端后生效）");
-    setTimeout(() => setToast(""), 3000);
+  const share = async () => {
+    if (!effect?.serverId) {
+      setToast("请先在下方保存到云端、上传版本并设为 Published");
+      setTimeout(() => setToast(""), 4000);
+      return;
+    }
+    try {
+      const { effect: cloud } = await apiFetch<{ effect: { publishedVersionId: number | null } }>(
+        `/api/effects/${effect.serverId}`,
+      );
+      if (!cloud.publishedVersionId) {
+        setToast("请先上传版本并设为 Published");
+      } else {
+        await apiFetch(`/api/effects/${effect.serverId}`, {
+          method: "PATCH",
+          json: { visibility: "public", prompt: effect.prompt, recipe: effect.recipe },
+        });
+        upsertEffect({ ...effect, shared: true, updatedAt: Date.now() });
+        setToast("已公开到创作广场");
+      }
+    } catch (e) {
+      setToast(e instanceof ApiError ? e.message : "分享失败，请稍后重试");
+    }
+    setTimeout(() => setToast(""), 4000);
   };
 
   const seed = useMemo(
@@ -139,7 +239,7 @@ function StudioInner() {
     if (next) setEffectError(null);
   };
 
-  const notFound = hydrated && ((!!id && !effect) || (!!fork && !forkItem));
+  const notFound = hydrated && ((!!id && !effect) || (!!fork && forkItem === null));
   if (notFound) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">

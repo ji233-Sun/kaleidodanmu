@@ -1,4 +1,5 @@
 import type { DanmakuEvent } from "./types";
+import type { LiveFrame, VodDanmakuElem } from "@/types";
 import { mulberry32, pick } from "./random";
 
 /** 预置弹幕语料：接入后端后替换为真实弹幕流 */
@@ -19,6 +20,47 @@ const TEXTS = [
 ];
 
 const COLORS = [0xffffff, 0x00a1d6, 0xfb7299, 0x8b7cf6, 0xffd166, 0x7ee0a3];
+
+function modeOf(mode: number): DanmakuEvent["mode"] {
+  return mode === 5 ? "top" : mode === 4 ? "bottom" : "scroll";
+}
+
+/** Convert the VOD API wire shape into the runtime event contract. */
+export function vodElemToEvent(elem: VodDanmakuElem): DanmakuEvent {
+  return {
+    id: elem.idStr || String(elem.id),
+    source: "vod",
+    text: elem.content,
+    videoTimeMs: elem.progress,
+    receivedAt: 0,
+    mode: modeOf(elem.mode),
+    color: elem.color,
+    fontSize: elem.fontsize,
+    weight: elem.weight,
+    seed: elem.id >>> 0,
+  };
+}
+
+/** Parse the simplified DANMU_MSG frame emitted by the live SSE endpoint. */
+export function liveFrameToEvent(frame: LiveFrame): DanmakuEvent | null {
+  if (frame.op !== 5 || frame.cmd !== "DANMU_MSG" || !Array.isArray(frame.info)) return null;
+  const info = frame.info as unknown[];
+  const meta = Array.isArray(info[0]) ? info[0] as unknown[] : [];
+  const text = typeof info[1] === "string" ? info[1] : "";
+  if (!text) return null;
+  const seq = typeof meta[9] === "number" ? meta[9] : Date.now();
+  return {
+    id: `live-${seq}`,
+    source: "live",
+    text,
+    receivedAt: Date.now(),
+    mode: modeOf(typeof meta[1] === "number" ? meta[1] : 1),
+    color: typeof meta[3] === "number" ? meta[3] : 0xffffff,
+    fontSize: typeof meta[2] === "number" ? meta[2] : 25,
+    weight: 0,
+    seed: seq >>> 0,
+  };
+}
 
 /**
  * 生成点播弹幕时间轴：同一 seed 生成同一批事件。

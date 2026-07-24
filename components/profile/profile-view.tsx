@@ -12,6 +12,8 @@ import {
 } from "@/lib/profile";
 import { EffectThumb } from "@/components/effect-thumb";
 import { cn } from "@/lib/cn";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/session";
 
 function fmtNum(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -54,6 +56,8 @@ interface InteractionState {
 }
 
 export function ProfileView({ name }: { name: string }) {
+  const router = useRouter();
+  const { user } = useSession();
   const [profileResult, setProfileResult] = useState<{
     name: string;
     profile: UserProfile | null;
@@ -68,10 +72,9 @@ export function ProfileView({ name }: { name: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchUserProfile(name).then((p) => {
-      if (cancelled) return;
-      setProfileResult({ name, profile: p });
-    });
+    fetchUserProfile(name)
+      .then((p) => !cancelled && setProfileResult({ name, profile: p }))
+      .catch(() => !cancelled && setProfileResult({ name, profile: null }));
     return () => {
       cancelled = true;
     };
@@ -98,6 +101,10 @@ export function ProfileView({ name }: { name: string }) {
   const interact = useCallback(
     (effect: PublishedEffect, kind: "like" | "coin" | "favorite") => {
       const key = kind === "like" ? "liked" : kind === "coin" ? "coined" : "favorited";
+      if (!user) {
+        router.push(`/login?next=${encodeURIComponent(`/u/${name}`)}`);
+        return;
+      }
       const cur = interactions[effect.id]?.[key] ?? false;
       // 投币不可撤销（对齐 B 站行为）
       if (kind === "coin" && cur) return;
@@ -106,9 +113,14 @@ export function ProfileView({ name }: { name: string }) {
         const defaults: InteractionState = { liked: false, coined: false, favorited: false };
         return { ...prev, [effect.id]: { ...defaults, ...prev[effect.id], [key]: on } };
       });
-      void postInteraction(effect.id, kind, on);
+      void postInteraction(effect.id, kind, on).catch(() => {
+        setInteractions((prev) => {
+          const previous = prev[effect.id] ?? { liked: false, coined: false, favorited: false };
+          return { ...prev, [effect.id]: { ...previous, [key]: cur } };
+        });
+      });
     },
-    [interactions],
+    [interactions, name, router, user],
   );
 
   if (loading) {
@@ -149,10 +161,10 @@ export function ProfileView({ name }: { name: string }) {
           className="flex h-16 w-16 flex-none items-center justify-center rounded-full text-2xl font-bold text-white"
           style={{ background: profile.avatarHue }}
         >
-          {profile.name[0]}
+          {profile.displayName[0]}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-ink">{profile.name}</h1>
+          <h1 className="text-xl font-bold text-ink">{profile.displayName}</h1>
           <p className="mt-1 text-sm text-ink-2">{profile.bio}</p>
           <p className="mt-1 text-xs text-ink-3">{fmtDate(profile.joinedAt)} 加入</p>
         </div>
@@ -278,7 +290,7 @@ export function ProfileView({ name }: { name: string }) {
                     className="flex items-center gap-3 rounded-xl border border-line p-3 transition-colors hover:border-bili-purple/40"
                   >
                     <Link
-                      href={`/u/${encodeURIComponent(d.author)}`}
+                      href={`/u/${encodeURIComponent(d.authorHandle)}`}
                       className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-xs font-bold text-white"
                       style={{ background: d.authorAvatarHue }}
                       title={`查看 ${d.author} 的主页`}
@@ -295,7 +307,7 @@ export function ProfileView({ name }: { name: string }) {
                       </Link>
                       <p className="mt-0.5 text-xs text-ink-3">
                         <Link
-                          href={`/u/${encodeURIComponent(d.author)}`}
+                          href={`/u/${encodeURIComponent(d.authorHandle)}`}
                           className="hover:text-bili-blue hover:underline"
                         >
                           {d.author}

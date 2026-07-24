@@ -13,6 +13,15 @@ const COUNT_COL: Record<InteractionKind, EffectCountColumn> = {
 }
 
 export const InteractionService = {
+  async recordUse(effectId: number): Promise<number> {
+    const effect = await EffectRepository.findById(effectId)
+    if (!effect || effect.visibility !== 'public' || effect.publishedVersionId === null) {
+      throw new HttpError(404, 'not_found', 'Effect not found')
+    }
+    await EffectRepository.bumpCount(effectId, 'uses', 1)
+    return effect.uses + 1
+  },
+
   /** POST /api/effects/:id/interactions —— 点赞 / 投币 / 收藏 切换，维护计数。 */
   async toggle(
     userId: number,
@@ -21,7 +30,9 @@ export const InteractionService = {
     on: boolean,
   ): Promise<InteractionResponse> {
     const effect = await EffectRepository.findById(effectId)
-    if (!effect) throw new HttpError(404, 'not_found', 'Effect not found')
+    if (!effect || effect.visibility !== 'public' || effect.publishedVersionId === null) {
+      throw new HttpError(404, 'not_found', 'Effect not found')
+    }
     const col = COUNT_COL[kind]
     const exists = await InteractionRepository.exists(userId, effectId, kind)
     if (on && !exists) {

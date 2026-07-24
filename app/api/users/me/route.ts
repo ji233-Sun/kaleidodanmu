@@ -3,6 +3,15 @@ import { handleApiError, requireUser } from '@/server/utils/http'
 import { UserService } from '@/server/services/user.service'
 import { UpdateProfileSchema } from '@/types'
 
+export async function GET(req: Request) {
+  try {
+    const user = await requireUser(req)
+    return NextResponse.json({ user: await UserService.getPublicUser(user.id) })
+  } catch (e) {
+    return handleApiError(e)
+  }
+}
+
 export async function PATCH(req: Request) {
   try {
     const user = await requireUser(req)

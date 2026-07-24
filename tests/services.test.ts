@@ -97,6 +97,50 @@ describe('services', () => {
     })
   })
 
+  describe('community services', () => {
+    it('published + public 作品进入广场，使用次数真实累加', async () => {
+      const u = await createUser()
+      const e = await b.EffectService.create({
+        ownerId: u.id,
+        slug: uniq('square'),
+        name: 'Public effect',
+        visibility: 'public',
+        prompt: 'prompt',
+        recipe: { symmetry: 6 },
+      })
+      expect((await b.SquareService.list()).items.some((item) => item.id === e.id)).toBe(false)
+      const v = await b.VersionService.create(e.id, u.id, {
+        version: '1.0.0',
+        entry: 'main.js',
+        sdkVersion: '0.1',
+        schemaVersion: '1',
+        manifestJson: '{}',
+        code: 'YQ==',
+      })
+      await b.EffectService.publish(e.id, u.id, v.id, 'published')
+      expect((await b.SquareService.list()).items.some((item) => item.id === e.id)).toBe(true)
+      expect(await b.InteractionService.recordUse(e.id)).toBe(1)
+      expect((await b.EffectService.get(e.id, u.id)).uses).toBe(1)
+    })
+
+    it('私有或未发布作品不能互动和记录使用', async () => {
+      const u = await createUser()
+      const viewer = await createUser()
+      const e = await b.EffectService.create({ ownerId: u.id, slug: uniq('private'), name: 'Private' })
+      await expect(b.InteractionService.recordUse(e.id)).rejects.toMatchObject({ status: 404 })
+      await expect(b.InteractionService.toggle(viewer.id, e.id, 'like', true)).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('auth DTO 和公开资料包含 handle 与展示字段', async () => {
+      const { user } = await b.AuthService.register(`${uniq('profile')}@test.local`, '12345678')
+      expect(user.name).toBeTruthy()
+      expect(user.displayName).toBe(user.name)
+      const updated = await b.UserService.updateProfile(user.id, { displayName: 'Display', bio: 'Bio' })
+      expect(updated.displayName).toBe('Display')
+      expect((await b.UserService.getPublicUser(user.id)).bio).toBe('Bio')
+    })
+  })
+
   describe('VersionService', () => {
     const code = 'YQ=='
     const base = {

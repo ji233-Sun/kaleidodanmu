@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DanmakuEvent, Recipe } from "@/lib/types";
-import { generateLiveDanmaku, generateVodDanmaku } from "@/lib/danmaku";
+import { liveFrameToEvent, vodElemToEvent } from "@/lib/danmaku";
+import type { LiveFrame, VodDanmakuReply } from "@/types";
 import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
 import { EffectSandbox, type EffectSandboxHandle } from "@/components/player/effect-sandbox";
 import { cn } from "@/lib/cn";
@@ -35,8 +36,6 @@ export function KaleidoPlayer({
   const effectRef = useRef<EffectSandboxHandle>(null);
   const vodIdxRef = useRef(0);
   const vodLastRef = useRef(0);
-  const liveClockRef = useRef(0);
-  const liveIdxRef = useRef(0);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [playing, setPlaying] = useState(false);
@@ -48,16 +47,52 @@ export function KaleidoPlayer({
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [source, setSource] = useState<"vod" | "live">("vod");
+  const [showDanmakuList, setShowDanmakuList] = useState(false);
   const [fps, setFps] = useState(0);
   const [effectError, setEffectError] = useState<string | null>(null);
+  const [vodEvents, setVodEvents] = useState<DanmakuEvent[]>([]);
+  const [vodState, setVodState] = useState<"loading" | "ready" | "error">("loading");
+  const [liveState, setLiveState] = useState<"loading" | "ready" | "error">("loading");
 
   // 运行错误同步给外层（Studio 用它做显著提示与「让 Agent 修复」入口）
   useEffect(() => {
     onEffectError?.(effectError);
   }, [effectError, onEffectError]);
 
-  const vodEvents = useMemo(() => generateVodDanmaku(seed, 60_000, 240), [seed]);
-  const liveEvents = useMemo(() => generateLiveDanmaku(seed), [seed]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.resolve().then(() => setVodState("loading"));
+    void fetch(`/api/mock/vod?seed=${seed}&count=240&duration=60000`, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<VodDanmakuReply>;
+      })
+      .then(({ elems }) => {
+        setVodEvents(elems.map(vodElemToEvent));
+        setVodState("ready");
+      })
+      .catch((error: unknown) => {
+        if ((error as { name?: string }).name !== "AbortError") setVodState("error");
+      });
+    return () => controller.abort();
+  }, [seed]);
+
+  useEffect(() => {
+    if (source !== "live") return;
+    void Promise.resolve().then(() => setLiveState("loading"));
+    const stream = new EventSource(`/api/mock/live?seed=${seed}&rate=2`);
+    stream.onopen = () => setLiveState("ready");
+    stream.onerror = () => setLiveState("error");
+    stream.onmessage = (message) => {
+      try {
+        const event = liveFrameToEvent(JSON.parse(message.data) as LiveFrame);
+        if (event) effectRef.current?.emit(event);
+      } catch {
+        // Ignore malformed mock frames and keep the stream alive.
+      }
+    };
+    return () => stream.close();
+  }, [seed, source]);
 
   /* ---------- danmaku emission ---------- */
   // 弹幕统一交给特效层渲染，不再叠加经典原文弹幕
@@ -70,7 +105,6 @@ export function KaleidoPlayer({
     const video = videoRef.current;
     if (!video) return;
     let raf = 0;
-    let prevTs: number | null = null;
     const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
       const v = videoRef.current;
@@ -92,38 +126,16 @@ export function KaleidoPlayer({
           }
         }
         vodLastRef.current = nowMs;
-      } else {
-        // 直播：虚拟时钟随播放推进，到点推送，到底循环
-        if (!v.paused && prevTs !== null) {
-          liveClockRef.current += (ts - prevTs) * v.playbackRate;
-        }
-        const clock = liveClockRef.current;
-        const last = liveEvents[liveEvents.length - 1]?.receivedAt ?? 0;
-        if (liveIdxRef.current >= liveEvents.length) {
-          liveClockRef.current = 0;
-          liveIdxRef.current = 0;
-        } else {
-          while (
-            liveIdxRef.current < liveEvents.length &&
-            liveEvents[liveIdxRef.current].receivedAt <= clock
-          ) {
-            emit(liveEvents[liveIdxRef.current]);
-            liveIdxRef.current++;
-          }
-        }
-        void last;
       }
-      prevTs = ts;
+      void ts;
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [source, vodEvents, liveEvents, emit]);
+  }, [source, vodEvents, emit]);
 
   // 切源时清场
   useEffect(() => {
     vodIdxRef.current = 0;
-    liveIdxRef.current = 0;
-    liveClockRef.current = 0;
     effectRef.current?.reset();
   }, [source]);
 
@@ -207,6 +219,12 @@ export function KaleidoPlayer({
   }, [togglePlay, toggleFs, wakeUI]);
 
   const pct = dur ? Math.min(100, (cur / dur) * 100) : 0;
+  const sourceState = source === "vod" ? vodState : liveState;
+  const currentMs = cur * 1000;
+  const visibleVodEvents = vodEvents.filter((event) => {
+    const at = event.videoTimeMs ?? 0;
+    return at >= Math.max(0, currentMs - 5000) && at <= currentMs + 15000;
+  }).slice(0, 30);
 
   return (
     <div
@@ -241,6 +259,37 @@ export function KaleidoPlayer({
         />
       </div>
 
+      {showDanmakuList && source === "vod" && (
+        <aside className="absolute top-12 right-3 bottom-16 z-[9] w-64 overflow-hidden rounded-lg border border-white/15 bg-black/80 text-white shadow-xl">
+          <div className="flex items-center border-b border-white/10 px-3 py-2">
+            <span className="text-xs font-medium">VOD 弹幕时间轴</span>
+            <span className="ml-auto text-[10px] text-white/50">{vodEvents.length} 条</span>
+          </div>
+          <div className="h-full overflow-y-auto pb-10">
+            {visibleVodEvents.map((event) => {
+              const at = (event.videoTimeMs ?? 0) / 1000;
+              const active = Math.abs(at - cur) < 1;
+              return (
+                <button
+                  key={event.id}
+                  onClick={() => { if (videoRef.current) videoRef.current.currentTime = at; }}
+                  className={cn(
+                    "grid w-full grid-cols-[38px_1fr] gap-2 px-3 py-1.5 text-left text-xs hover:bg-white/10",
+                    active && "bg-bili-blue/25",
+                  )}
+                >
+                  <span className="text-white/45 tabular-nums">{fmt(at)}</span>
+                  <span className="truncate" title={event.text}>{event.text}</span>
+                </button>
+              );
+            })}
+            {visibleVodEvents.length === 0 && (
+              <p className="px-3 py-6 text-center text-xs text-white/45">当前时间附近没有弹幕</p>
+            )}
+          </div>
+        </aside>
+      )}
+
       {/* 顶栏 */}
       <div
         className={cn(
@@ -262,7 +311,8 @@ export function KaleidoPlayer({
           {fps} FPS
         </span>
         <span className="rounded-full border border-white/20 bg-black/50 px-2.5 py-0.5 text-xs text-bili-blue">
-          {source === "vod" ? "点播 Mock" : "直播 Mock"}
+          {source === "vod" ? `VOD API · ${vodEvents.length} 条` : "LIVE SSE"}
+          {sourceState === "loading" ? " · 连接中" : sourceState === "error" ? " · 异常" : ""}
         </span>
         {effectError && (
           <span className="max-w-52 truncate rounded-full border border-red-300/40 bg-red-950/70 px-2.5 py-0.5 text-xs text-red-200" title={effectError}>
@@ -347,6 +397,19 @@ export function KaleidoPlayer({
           </div>
 
           <div className="flex-1" />
+
+          {source === "vod" && (
+            <button
+              onClick={() => setShowDanmakuList((value) => !value)}
+              className={cn(
+                "h-8 rounded-md px-2 text-xs text-white transition-colors hover:bg-white/12",
+                showDanmakuList && "bg-white/12 text-bili-blue",
+              )}
+              title="查看 VOD 接口返回的弹幕列表"
+            >
+              弹幕列表
+            </button>
+          )}
 
           {/* 倍速 */}
           <div className="relative">

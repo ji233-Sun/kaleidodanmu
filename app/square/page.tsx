@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SQUARE_ITEMS } from "@/lib/square";
+import { fetchSquare, postInteraction, type PublishedEffect } from "@/lib/profile";
 import { newEffectId, upsertEffect } from "@/lib/store";
+import { useSession } from "@/lib/session";
 import { EffectThumb } from "@/components/effect-thumb";
 import { cn } from "@/lib/cn";
 
@@ -14,12 +15,25 @@ function fmtNum(n: number) {
 
 export default function SquarePage() {
   const router = useRouter();
+  const { user } = useSession();
+  const [items, setItems] = useState<PublishedEffect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [usedIds, setUsedIds] = useState<Set<string>>(new Set());
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  /** 一键取用：复制作品到我的作品 */
+  useEffect(() => {
+    let cancelled = false;
+    fetchSquare()
+      .then((result) => !cancelled && setItems(result))
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : "广场加载失败"))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  /** 一键取用：复制作品到当前账号的本地草稿。 */
   const use = useCallback((id: string) => {
-    const item = SQUARE_ITEMS.find((i) => i.id === id);
+    const item = items.find((i) => i.id === id);
     if (!item) return;
     upsertEffect({
       id: newEffectId(),
@@ -31,17 +45,30 @@ export default function SquarePage() {
       updatedAt: Date.now(),
       forkedFrom: item.id,
     });
+    void apiUse(id);
     setUsedIds((prev) => new Set(prev).add(id));
-  }, []);
+  }, [items]);
 
   const like = useCallback((id: string) => {
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent("/square")}`);
+      return;
+    }
     setLikedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+    const on = !likedIds.has(id);
+    void postInteraction(id, "like", on).catch(() => {
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        if (on) next.delete(id); else next.add(id);
+        return next;
+      });
+    });
+  }, [likedIds, router, user]);
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
@@ -52,8 +79,14 @@ export default function SquarePage() {
         </p>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {SQUARE_ITEMS.map((item) => {
+      {loading ? (
+        <p className="py-16 text-center text-sm text-ink-3">加载广场中…</p>
+      ) : error ? (
+        <p className="py-16 text-center text-sm text-error">{error}</p>
+      ) : items.length === 0 ? (
+        <p className="py-16 text-center text-sm text-ink-3">还没有公开发布的作品</p>
+      ) : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {items.map((item) => {
           const used = usedIds.has(item.id);
           const liked = likedIds.has(item.id);
           return (
@@ -138,7 +171,11 @@ export default function SquarePage() {
             </div>
           );
         })}
-      </div>
+      </div>}
     </main>
   );
+}
+
+async function apiUse(id: string): Promise<void> {
+  await fetch(`/api/effects/${encodeURIComponent(id)}/use`, { method: "POST" });
 }

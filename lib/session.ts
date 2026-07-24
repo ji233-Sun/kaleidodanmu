@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { AuthUserDto } from "@/types";
 import { apiFetch, ApiError } from "./api";
+import { setEffectsOwner } from "./store";
 
 /**
  * 前端会话 store：页面首次使用时拉取 /api/auth/me 并全局缓存，
@@ -21,6 +22,7 @@ const listeners = new Set<() => void>();
 const SERVER_STATE: SessionState = { user: null, loaded: false };
 
 function setState(next: SessionState) {
+  setEffectsOwner(next.user?.id ?? null);
   state = next;
   listeners.forEach((cb) => cb());
 }

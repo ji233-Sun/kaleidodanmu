@@ -9,9 +9,10 @@ import type {
   ApiTokenDto,
   AppSettingDto,
   CreatedApiTokenDto,
+  PublicUserDto,
   TokenListResponse,
 } from "@/types";
-import { Alert, Badge, Button, Input, Spinner, Tabs } from "@/components/ui";
+import { Alert, Badge, Button, Input, Spinner, Tabs, Textarea } from "@/components/ui";
 import { LlmPanel } from "@/components/profile/llm-panel";
 
 /** 授权 scope 目录（与 app/oauth/authorize/page.tsx 的 SCOPE_CATALOG 对齐） */
@@ -394,6 +395,61 @@ function SettingsPanel() {
   );
 }
 
+function ProfilePanel() {
+  const { user, refresh } = useSession();
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [avatarHue, setAvatarHue] = useState(user?.avatarHue ?? "#00a1d6");
+  const [bio, setBio] = useState(user?.bio ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const save = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      await apiFetch<{ user: PublicUserDto }>("/api/users/me", {
+        method: "PATCH",
+        json: { displayName, avatarHue, bio },
+      });
+      await refresh();
+      setMessage("个人资料已保存");
+    } catch (e) {
+      setMessage(errMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl space-y-4 rounded-2xl border border-line bg-card p-5">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-ink-2">公开昵称</label>
+        <Input value={displayName} maxLength={32} onChange={(e) => setDisplayName(e.target.value)} />
+        <p className="mt-1 text-xs text-ink-3">主页地址保持为 /u/{user?.name}</p>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-ink-2">头像颜色</label>
+        <input
+          type="color"
+          value={avatarHue}
+          onChange={(e) => setAvatarHue(e.target.value)}
+          className="h-10 w-16 cursor-pointer rounded-lg border border-line bg-white p-1"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-ink-2">个人简介</label>
+        <Textarea value={bio} maxLength={280} onChange={(e) => setBio(e.target.value)} />
+      </div>
+      <div className="flex items-center gap-3">
+        <Button disabled={saving || !displayName.trim()} onClick={save}>
+          {saving ? "保存中…" : "保存资料"}
+        </Button>
+        {message && <span className="text-xs text-ink-2">{message}</span>}
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------------- 页面 --------------------------------- */
 
 export default function SettingsPage() {
@@ -425,11 +481,12 @@ export default function SettingsPage() {
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-ink">设置</h1>
-        <p className="mt-1 text-sm text-ink-2">管理你的 API Token 和平台应用配置。</p>
+        <p className="mt-1 text-sm text-ink-2">管理个人资料、模型配置和 API Token。</p>
       </div>
       <Tabs
         defaultValue="tokens"
         items={[
+          { value: "profile", label: "个人资料", content: <ProfilePanel /> },
           { value: "tokens", label: "API Token", content: <TokenPanel /> },
           { value: "llm", label: "模型", content: <LlmPanel /> },
           { value: "settings", label: "应用设置", content: <SettingsPanel /> },

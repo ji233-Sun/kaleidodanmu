@@ -5,6 +5,12 @@ import { toPublicUser, toSquareEffect, sum } from './community.mapper'
 import type { UserProfileDto, UpdateProfileRequest, PublicUserDto } from '@/types'
 
 export const UserService = {
+  async getPublicUser(userId: number): Promise<PublicUserDto> {
+    const user = await UserRepository.findById(userId)
+    if (!user) throw new HttpError(404, 'not_found', 'User not found')
+    return toPublicUser(user)
+  },
+
   /** GET /api/users/:name —— 个人主页：资料 + 已发布作品 + 聚合统计。 */
   async getProfile(name: string): Promise<UserProfileDto | null> {
     const user = await UserRepository.findByName(name)

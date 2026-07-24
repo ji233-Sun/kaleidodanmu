@@ -136,6 +136,12 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
     [snapshotJson],
   );
 
+  const cloudMetadata = useMemo(() => ({
+    name: effect.name,
+    prompt: effect.prompt,
+    recipe: effect.recipe,
+  }), [effect.name, effect.prompt, effect.recipe]);
+
   const linkToCloud = async () => {
     setError(null);
     setBusy("link");
@@ -143,7 +149,13 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
       const slug = makeSlug();
       const { effect: created } = await apiFetch<{ effect: EffectDto }>("/api/effects", {
         method: "POST",
-        json: { slug, name: effect.name },
+        json: {
+          slug,
+          ...cloudMetadata,
+          ...(effect.forkedFrom && /^\d+$/.test(effect.forkedFrom)
+            ? { forkedFrom: Number(effect.forkedFrom) }
+            : {}),
+        },
       });
       await pushDraft(created.id);
       upsertEffect({ ...effect, serverId: created.id });
@@ -165,6 +177,10 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
     setBusy("sync");
     try {
       await pushDraft(effect.serverId);
+      await apiFetch(`/api/effects/${effect.serverId}`, {
+        method: "PATCH",
+        json: cloudMetadata,
+      });
       showToast("草稿已同步到云端");
     } catch (e) {
       setError(errorMessage(e));
@@ -217,6 +233,13 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
         method: "POST",
         json: { versionId, channel },
       });
+      if (channel === "published") {
+        await apiFetch(`/api/effects/${effect.serverId}`, {
+          method: "PATCH",
+          json: { ...cloudMetadata, visibility: "public" },
+        });
+        upsertEffect({ ...effect, shared: true, published: true });
+      }
       showToast(`已设为 ${CHANNELS.find((c) => c.key === channel)?.label ?? channel}`);
       await refresh();
     } catch (e) {

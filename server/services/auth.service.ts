@@ -9,6 +9,10 @@ export function toAuthUser(u: User): AuthUserDto {
   return {
     id: u.id,
     email: u.email,
+    name: u.name,
+    displayName: u.displayName,
+    avatarHue: u.avatarHue,
+    bio: u.bio,
     role: u.role,
     createdAt: u.createdAt.toISOString(),
   }

@@ -2,7 +2,12 @@
 
 import type { KaleidoEffect } from "./types";
 
-const KEY = "kaleido:effects:v1";
+const BASE_KEY = "kaleido:effects:v1";
+let ownerScope = "anonymous";
+
+function storageKey(): string {
+  return `${BASE_KEY}:${ownerScope}`;
+}
 
 /** 我的作品：原型阶段存 localStorage，之后替换为服务端 Effect 表。 */
 
@@ -12,7 +17,9 @@ const listeners = new Set<() => void>();
 export function loadEffects(): KaleidoEffect[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const scoped = window.localStorage.getItem(storageKey());
+    // One-time compatibility migration for pre-account local drafts.
+    const raw = scoped ?? (ownerScope === "anonymous" ? window.localStorage.getItem(BASE_KEY) : null);
     if (!raw) return [];
     const list = JSON.parse(raw) as KaleidoEffect[];
     return Array.isArray(list) ? list : [];
@@ -36,7 +43,7 @@ export function getEffectsServerSnapshot(): KaleidoEffect[] {
 export function subscribeEffects(cb: () => void) {
   listeners.add(cb);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY) cb();
+    if (e.key === storageKey()) cb();
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -47,8 +54,26 @@ export function subscribeEffects(cb: () => void) {
 
 function saveEffects(list: KaleidoEffect[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(list));
+  window.localStorage.setItem(storageKey(), JSON.stringify(list));
   cache = list;
+  listeners.forEach((cb) => cb());
+}
+
+/** Switch the local draft cache to the current account namespace. */
+export function setEffectsOwner(ownerId: number | null): void {
+  const next = ownerId === null ? "anonymous" : `user-${ownerId}`;
+  if (next === ownerScope) return;
+  if (typeof window !== "undefined" && ownerId !== null) {
+    const targetKey = `${BASE_KEY}:${next}`;
+    const migrationKey = `${BASE_KEY}:legacy-owner`;
+    const legacy = window.localStorage.getItem(BASE_KEY);
+    if (!window.localStorage.getItem(targetKey) && legacy && !window.localStorage.getItem(migrationKey)) {
+      window.localStorage.setItem(targetKey, legacy);
+      window.localStorage.setItem(migrationKey, String(ownerId));
+    }
+  }
+  ownerScope = next;
+  cache = null;
   listeners.forEach((cb) => cb());
 }
 

@@ -15,6 +15,7 @@ import { hashString } from "@/lib/random";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { Badge, Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useSession } from "@/lib/session";
 
 function fmtNum(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -45,6 +46,7 @@ const StarIcon = ({ className }: { className?: string }) => (
 
 export function EffectDetail({ id }: { id: string }) {
   const router = useRouter();
+  const { user } = useSession();
   const [effect, setEffect] = useState<PublishedEffect | null>(null);
   const [loading, setLoading] = useState(true);
   const [derivatives, setDerivatives] = useState<DerivativeWork[] | null>(null);
@@ -56,12 +58,16 @@ export function EffectDetail({ id }: { id: string }) {
   useEffect(() => {
     // 组件以 key=id remount（见 app/square/[id]/page.tsx），effect 内只做异步拉取
     let cancelled = false;
-    fetchSquareEffect(id).then((fx) => {
-      if (cancelled) return;
-      setEffect(fx);
-      setLoading(false);
-      if (fx) fetchDerivatives(fx.id).then((list) => !cancelled && setDerivatives(list));
-    });
+    fetchSquareEffect(id)
+      .then((fx) => {
+        if (cancelled) return;
+        setEffect(fx);
+        setLiked(fx?.interacted?.like ?? false);
+        setCoined(fx?.interacted?.coin ?? false);
+        setFavorited(fx?.interacted?.favorite ?? false);
+        if (fx) fetchDerivatives(fx.id).then((list) => !cancelled && setDerivatives(list));
+      })
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
@@ -80,6 +86,7 @@ export function EffectDetail({ id }: { id: string }) {
       updatedAt: Date.now(),
       forkedFrom: effect.id,
     });
+    void fetch(`/api/effects/${encodeURIComponent(effect.id)}/use`, { method: "POST" });
     setUsed(true);
   }, [effect]);
 
@@ -87,15 +94,23 @@ export function EffectDetail({ id }: { id: string }) {
   const interact = useCallback(
     (kind: "like" | "coin" | "favorite") => {
       if (!effect) return;
+      if (!user) {
+        router.push(`/login?next=${encodeURIComponent(`/square/${effect.id}`)}`);
+        return;
+      }
       const cur = kind === "like" ? liked : kind === "coin" ? coined : favorited;
       if (kind === "coin" && cur) return;
       const on = !cur;
       if (kind === "like") setLiked(on);
       else if (kind === "coin") setCoined(on);
       else setFavorited(on);
-      void postInteraction(effect.id, kind, on);
+      void postInteraction(effect.id, kind, on).catch(() => {
+        if (kind === "like") setLiked(cur);
+        else if (kind === "coin") setCoined(cur);
+        else setFavorited(cur);
+      });
     },
-    [effect, liked, coined, favorited],
+    [effect, liked, coined, favorited, router, user],
   );
 
   if (loading) {
@@ -222,7 +237,7 @@ export function EffectDetail({ id }: { id: string }) {
 
           {/* 作者卡片 */}
           <Link
-            href={`/u/${encodeURIComponent(effect.author)}`}
+            href={`/u/${encodeURIComponent(effect.authorHandle)}`}
             className="flex items-center gap-3 rounded-2xl border border-line bg-card p-4 transition-colors hover:border-bili-pink/40"
           >
             <span

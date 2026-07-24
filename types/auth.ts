@@ -13,6 +13,10 @@ export type LoginRequest = z.infer<typeof LoginSchema>
 export interface AuthUserDto {
   id: number
   email: string
+  name: string
+  displayName: string
+  avatarHue: string
+  bio: string
   role: string
   createdAt: string
 }
