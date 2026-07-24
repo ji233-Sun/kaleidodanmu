@@ -10,6 +10,8 @@ export const EffectVersionRepository = {
   findById: async (id: number) => (await repo()).findOneBy({ id }),
   findByEffectAndVersion: async (effectId: number, version: string) =>
     (await repo()).findOneBy({ effectId, version }),
-  create: async (data: Omit<EffectVersion, 'id' | 'createdAt'>) =>
-    (await repo()).save((await repo()).create(data)),
+  // assetsJson 可空（单文件包为 null），create 时可省略
+  create: async (
+    data: Omit<EffectVersion, 'id' | 'createdAt' | 'assetsJson'> & { assetsJson?: string | null },
+  ) => (await repo()).save((await repo()).create(data)),
 }

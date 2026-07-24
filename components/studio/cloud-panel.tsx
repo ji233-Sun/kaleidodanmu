@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { KaleidoEffect } from "@/lib/types";
 import type { EffectChannel, EffectDto, EffectVersionDto } from "@/types";
+import { SCHEMA_VERSION, SDK_VERSION } from "@/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { upsertEffect } from "@/lib/store";
@@ -195,22 +196,28 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
     setBusy("version");
     try {
       const code = toBase64(effect.entrySource ?? DEFAULT_EFFECT_SOURCE);
+      const version = `1.0.${versions.length}`;
       const { version: v } = await apiFetch<{ version: EffectVersionDto }>(
         `/api/effects/${effect.serverId}/versions`,
         {
           method: "POST",
           json: {
-            version: `1.0.${versions.length}`,
-            entry: "index.js",
-            sdkVersion: "0.1.0",
-            schemaVersion: "1",
+            version,
+            entry: "entry.mjs",
+            sdkVersion: SDK_VERSION,
+            schemaVersion: SCHEMA_VERSION,
             manifestJson: JSON.stringify({
+              schemaVersion: SCHEMA_VERSION,
+              sdkVersion: SDK_VERSION,
+              version,
               name: effect.name,
-              prompt: effect.prompt,
+              entry: "entry.mjs",
               recipe: effect.recipe,
               capabilities: ["canvas", "danmaku", "three", "gsap"],
+              assets: [],
             }),
             code,
+            assets: [],
             channel: "draft",
           },
         },

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AdeAgentTurnRequestSchema } from "@/lib/ade/protocol";
 import { ADE_GUIDE_FILE } from "@/lib/ade/guide";
 import { BrowserEffectProject } from "@/lib/ade/project";
-import { DEFAULT_EFFECT_SOURCE, transformEffectSource, validateEffectSource } from "@/lib/runtime/effect";
+import { DEFAULT_EFFECT_SOURCE, rewriteEffectImports, validateEffectSource } from "@/lib/runtime/effect";
 import { AdeSessionPayloadSchema } from "@/types";
 import type { Recipe } from "@/lib/types";
 
@@ -98,11 +98,19 @@ describe("ADE session payload contract", () => {
 });
 
 describe("Effect Runtime source contract", () => {
-  it("accepts and transforms the built-in Three.js/GSAP effect", () => {
+  it("accepts and rewrites the built-in Three.js/GSAP effect imports to vendor URLs", () => {
     expect(() => validateEffectSource(DEFAULT_EFFECT_SOURCE)).not.toThrow();
-    const body = transformEffectSource(DEFAULT_EFFECT_SOURCE);
-    expect(body).not.toContain('from "three"');
-    expect(body).toContain("return defineEffect({");
+    const vendor = {
+      three: "/kaleido-runtime/vendor/three.mjs",
+      gsap: "/kaleido-runtime/vendor/gsap.mjs",
+      "@kaleido/sdk": "/kaleido-runtime/vendor/kaleido-sdk.mjs",
+    };
+    const out = rewriteEffectImports(DEFAULT_EFFECT_SOURCE, vendor);
+    expect(out).not.toContain('from "three"');
+    expect(out).toContain("/kaleido-runtime/vendor/three.mjs");
+    expect(out).toContain("/kaleido-runtime/vendor/kaleido-sdk.mjs");
+    // 不再改写为 return——保持真 ESM 的默认导出
+    expect(out).toContain("export default defineEffect({");
     expect(DEFAULT_EFFECT_SOURCE).not.toContain("remove(active.values().next().value)");
   });
 

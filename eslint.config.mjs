@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // 本项目生成/运行时产物，不参与 lint：
     "dist/**",
     "data/**",
+    "packages/*/dist/**",
+    "public/kaleido-runtime/**",
   ]),
 ]);
 

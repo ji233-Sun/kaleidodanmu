@@ -1,22 +1,12 @@
 import { z } from 'zod'
 import type { Recipe } from '@/lib/types'
 import { DEFAULT_EFFECT_SOURCE, validateEffectSource } from '@/lib/runtime/effect'
+import { RecipeSchema } from '@/types/manifest'
 import { ADE_GUIDE, ADE_GUIDE_FILE } from './guide'
 import type { AdeToolCall } from './protocol'
 
-const HexColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}){1,2}$/)
-
-export const RecipeSchema = z
-  .object({
-    symmetry: z.number().int().min(3).max(12),
-    rotationSpeed: z.number().min(-0.6).max(0.6),
-    motion: z.enum(['spiral', 'burst', 'orbit', 'flow']),
-    palette: z.array(HexColorSchema).min(2).max(6),
-    shardScale: z.number().min(0.5).max(2),
-    trail: z.number().min(0).max(0.9),
-    density: z.number().min(0.3).max(2),
-  })
-  .strict()
+// 配方 schema 现由共享契约 @/types/manifest 定义；re-export 保持既有导入路径（lib/profile、app/mine）。
+export { RecipeSchema }
 
 const EffectProjectSchema = z
   .object({

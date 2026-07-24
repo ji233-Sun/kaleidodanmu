@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { gsap } from "gsap";
-import * as THREE from "three";
+import type * as ThreeNS from "three";
+import type { gsap as GsapNS } from "gsap";
 import {
-  transformEffectSource,
+  validateEffectSource,
+  rewriteEffectImports,
   type EffectDefinition,
   type EffectInstance,
   type RuntimeCommand,
   type RuntimeEvent,
+  type RuntimeAsset,
 } from "@/lib/runtime/effect";
 
 function errorMessage(error: unknown): string {
@@ -33,15 +35,17 @@ function disableNetworkGlobals(): void {
   }
 }
 
-function compileEffect(source: string): EffectDefinition {
-  const body = transformEffectSource(source);
-  const factory = new Function("defineEffect", "THREE", "gsap", `"use strict";\n${body}`);
-  const defineEffect = (definition: EffectDefinition) => definition;
-  const definition = factory(defineEffect, THREE, gsap) as EffectDefinition;
-  if (!definition || typeof definition.setup !== "function") {
-    throw new Error("Effect 默认导出必须实现 setup()");
-  }
-  return definition;
+// 原生动态 import：绕过打包器对 import() 的静态改写，用于加载 blob 入口与 vendor 模块。
+// 仅本运行时页使用（受信代码）；用户 Effect 代码始终在 blob + iframe 沙箱中执行。
+const nativeImport = new Function("url", "return import(url)") as (
+  url: string,
+) => Promise<Record<string, unknown>>;
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 export default function EffectRuntimePage() {
@@ -52,6 +56,15 @@ export default function EffectRuntimePage() {
     if (!canvas) return;
     disableNetworkGlobals();
 
+    // 用 document 的真实 URL 组装绝对 vendor 地址：沙箱 iframe 为不透明源，location.origin 可能是
+    // "null"，但 protocol/host 仍是真实值。vendor 模块由 next.config 的 ACAO 头允许跨源加载。
+    const origin = `${location.protocol}//${location.host}`;
+    const vendor: Record<string, string> = {
+      three: `${origin}/kaleido-runtime/vendor/three.mjs`,
+      gsap: `${origin}/kaleido-runtime/vendor/gsap.mjs`,
+      "@kaleido/sdk": `${origin}/kaleido-runtime/vendor/kaleido-sdk.mjs`,
+    };
+
     let port: MessagePort | null = null;
     let effect: EffectInstance | null = null;
     let frameId = 0;
@@ -59,8 +72,37 @@ export default function EffectRuntimePage() {
     let lastFrame = performance.now();
     let fpsStartedAt = lastFrame;
     let fpsFrames = 0;
+    let threeMod: typeof ThreeNS | null = null;
+    let gsapMod: typeof GsapNS | null = null;
+    let assetUrls: string[] = [];
 
     const send = (event: RuntimeEvent) => port?.postMessage(event);
+
+    const ensureVendor = async () => {
+      if (!threeMod) threeMod = (await nativeImport(vendor.three)) as unknown as typeof ThreeNS;
+      if (!gsapMod) {
+        const mod = (await nativeImport(vendor.gsap)) as { gsap: typeof GsapNS };
+        gsapMod = mod.gsap;
+      }
+    };
+
+    const clearAssets = () => {
+      for (const url of assetUrls) URL.revokeObjectURL(url);
+      assetUrls = [];
+      (globalThis as { __KALEIDO_ASSETS__?: Record<string, string> }).__KALEIDO_ASSETS__ = {};
+    };
+
+    const registerAssets = (assets: RuntimeAsset[] | undefined) => {
+      clearAssets();
+      const registry: Record<string, string> = {};
+      for (const asset of assets ?? []) {
+        const bytes = base64ToBytes(asset.data);
+        const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: asset.mime }));
+        registry[asset.path] = url;
+        assetUrls.push(url);
+      }
+      (globalThis as { __KALEIDO_ASSETS__?: Record<string, string> }).__KALEIDO_ASSETS__ = registry;
+    };
 
     const viewport = () => ({
       width: Math.max(1, canvas.clientWidth),
@@ -85,6 +127,7 @@ export default function EffectRuntimePage() {
 
     const dispose = () => {
       stopLoop();
+      clearAssets();
       if (!effect) return;
       try {
         effect.dispose();
@@ -112,11 +155,27 @@ export default function EffectRuntimePage() {
       }
     };
 
-    const load = (command: Extract<RuntimeCommand, { type: "load" }>) => {
+    const load = async (command: Extract<RuntimeCommand, { type: "load" }>) => {
       dispose();
       try {
-        const definition = compileEffect(command.source);
-        effect = definition.setup({ canvas, recipe: command.recipe, THREE, gsap });
+        validateEffectSource(command.source);
+        registerAssets(command.assets);
+        await ensureVendor();
+
+        const rewritten = rewriteEffectImports(command.source, vendor);
+        const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: "text/javascript" }));
+        let definition: EffectDefinition;
+        try {
+          const mod = await nativeImport(blobUrl);
+          definition = (mod as { default?: EffectDefinition }).default as EffectDefinition;
+        } finally {
+          URL.revokeObjectURL(blobUrl);
+        }
+
+        if (!definition || typeof definition.setup !== "function") {
+          throw new Error("Effect 默认导出必须实现 setup()");
+        }
+        effect = definition.setup({ canvas, recipe: command.recipe, THREE: threeMod!, gsap: gsapMod! });
         if (
           !effect ||
           typeof effect.render !== "function" ||
@@ -145,7 +204,7 @@ export default function EffectRuntimePage() {
       if (!command || typeof command !== "object") return;
       try {
         if (command.type === "load") {
-          load(command);
+          void load(command);
         } else if (command.type === "danmaku") {
           effect?.onDanmaku?.(command.event);
         } else if (command.type === "playing") {

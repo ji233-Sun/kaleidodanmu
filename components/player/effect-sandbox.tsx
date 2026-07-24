@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { DanmakuEvent, Recipe } from "@/lib/types";
-import type { RuntimeCommand, RuntimeEvent } from "@/lib/runtime/effect";
+import type { RuntimeAsset, RuntimeCommand, RuntimeEvent } from "@/lib/runtime/effect";
 
 export interface EffectSandboxHandle {
   emit(event: DanmakuEvent): void;
@@ -13,17 +13,19 @@ interface EffectSandboxProps {
   source: string;
   recipe: Recipe;
   playing: boolean;
+  /** 随包静态资源（base64）；运行时转 blob URL 供 assetUrl 解析。本地预览通常为空。 */
+  assets?: RuntimeAsset[];
   onFps?(fps: number): void;
   onError?(message: string | null): void;
 }
 
 export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>(
-  function EffectSandbox({ source, recipe, playing, onFps, onError }, ref) {
+  function EffectSandbox({ source, recipe, playing, assets, onFps, onError }, ref) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const portRef = useRef<MessagePort | null>(null);
     const readyRef = useRef(false);
-    const latestRef = useRef({ source, recipe, playing, onFps, onError });
-    latestRef.current = { source, recipe, playing, onFps, onError };
+    const latestRef = useRef({ source, recipe, playing, assets, onFps, onError });
+    latestRef.current = { source, recipe, playing, assets, onFps, onError };
 
     const send = (command: RuntimeCommand) => {
       if (!readyRef.current) return;
@@ -42,8 +44,8 @@ export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>
     useEffect(() => {
       const latest = latestRef.current;
       latest.onError?.(null);
-      send({ type: "load", source, recipe, playing: latest.playing });
-    }, [source, recipe]);
+      send({ type: "load", source, recipe, playing: latest.playing, assets: latest.assets });
+    }, [source, recipe, assets]);
 
     useEffect(() => {
       send({ type: "playing", playing });
@@ -65,7 +67,7 @@ export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>
           readyRef.current = true;
           const latest = latestRef.current;
           latest.onError?.(null);
-          send({ type: "load", source: latest.source, recipe: latest.recipe, playing: latest.playing });
+          send({ type: "load", source: latest.source, recipe: latest.recipe, playing: latest.playing, assets: latest.assets });
         } else if (event.type === "fps") {
           latestRef.current.onFps?.(event.value);
         } else if (event.type === "error") {

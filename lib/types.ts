@@ -1,34 +1,6 @@
-/** 归一化弹幕事件（与 docs 技术方案 §4 对齐） */
-export interface DanmakuEvent {
-  id: string;
-  source: "vod" | "live";
-  text: string;
-  videoTimeMs?: number;
-  receivedAt: number;
-  mode: "scroll" | "top" | "bottom";
-  color: number;
-  fontSize: number;
-  weight: number;
-  seed: number;
-}
-
-/** 兼容配方：为旧作品保留的声明式基础参数，不限制 Canvas 的实际表现。 */
-export interface Recipe {
-  /** 对称切片数 3-12 */
-  symmetry: number;
-  /** 旋转速度（圈/秒，可正可负） */
-  rotationSpeed: number;
-  /** 碎片运动模式 */
-  motion: "spiral" | "burst" | "orbit" | "flow";
-  /** 色彩策略 */
-  palette: string[];
-  /** 碎片缩放 */
-  shardScale: number;
-  /** 拖影强度 0-0.9 */
-  trail: number;
-  /** 弹幕密度倍率 0.3-2 */
-  density: number;
-}
+/** 归一化弹幕事件与兼容配方现由 @kaleido/sdk 统一定义，这里 re-export 保持既有导入路径。 */
+import type { DanmakuEvent, Recipe } from "@kaleido/sdk";
+export type { DanmakuEvent, Recipe };
 
 /** 本地 Canvas 作品草稿。 */
 export interface KaleidoEffect {

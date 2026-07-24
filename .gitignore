@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -46,7 +47,15 @@ next-env.d.ts
 
 # build output (tsup CLI 产物)
 /dist
+packages/*/dist
 
 public/*.mp4
+public/kaleido-runtime/
+
+# playwright e2e 输出
+/test-results
+/playwright-report
+/blob-report
+/.playwright
 
 .playwright-cli

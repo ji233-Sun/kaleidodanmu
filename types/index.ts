@@ -5,6 +5,7 @@
 export * from './common'
 export * from './auth'
 export * from './effect'
+export * from './manifest'
 export * from './version'
 export * from './draft'
 export * from './settings'

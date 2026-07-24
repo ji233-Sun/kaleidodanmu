@@ -1,68 +1,20 @@
-import type * as Three from "three";
-import type { gsap as gsapInstance } from "gsap";
-import type { DanmakuEvent, Recipe } from "@/lib/types";
+// Effect 生命周期与运行时协议类型现由 @kaleido/sdk 统一定义；这里 re-export 以保持既有导入路径。
+export type {
+  EffectViewport,
+  EffectFrame,
+  EffectPointerEvent,
+  EffectSetupContext,
+  EffectInstance,
+  EffectDefinition,
+  RuntimeCommand,
+  RuntimeEvent,
+  RuntimeAsset,
+} from "@kaleido/sdk";
 
-export interface EffectViewport {
-  width: number;
-  height: number;
-  dpr: number;
-}
+import { LIMITS } from "@/types/manifest";
 
-export interface EffectFrame {
-  now: number;
-  delta: number;
-}
-
-export interface EffectPointerEvent {
-  type: "down" | "move" | "up" | "cancel";
-  /** Canvas CSS 像素坐标。 */
-  x: number;
-  y: number;
-  /** 归一化坐标，左上为 (0, 0)，右下为 (1, 1)。 */
-  nx: number;
-  ny: number;
-  pressure: number;
-  pointerId: number;
-  pointerType: string;
-}
-
-export interface EffectSetupContext {
-  canvas: HTMLCanvasElement;
-  recipe: Recipe;
-  THREE: typeof Three;
-  gsap: typeof gsapInstance;
-}
-
-export interface EffectInstance {
-  onDanmaku?(event: DanmakuEvent): void;
-  onPointer?(event: EffectPointerEvent): void;
-  render(frame: EffectFrame): void;
-  resize(viewport: EffectViewport): void;
-  setPlaying?(playing: boolean): void;
-  reset?(): void;
-  dispose(): void;
-}
-
-export interface EffectDefinition {
-  setup(context: EffectSetupContext): EffectInstance;
-}
-
-export type RuntimeCommand =
-  | { type: "load"; source: string; recipe: Recipe; playing: boolean }
-  | { type: "danmaku"; event: DanmakuEvent }
-  | { type: "playing"; playing: boolean }
-  | { type: "reset" };
-
-export type RuntimeEvent =
-  | { type: "ready" }
-  | { type: "fps"; value: number }
-  | { type: "error"; message: string };
-
-const IMPORT_PATTERNS = [
-  /^\s*import\s+\*\s+as\s+THREE\s+from\s+["']three["'];?\s*$/gm,
-  /^\s*import\s+\{\s*gsap\s*\}\s+from\s+["']gsap["'];?\s*$/gm,
-  /^\s*import\s+\{\s*defineEffect\s*\}\s+from\s+["']@kaleido\/sdk["'];?\s*$/gm,
-];
+/** 允许的裸依赖说明符；其余（相对路径、URL、其他包）一律拒绝。 */
+export const ALLOWED_SPECIFIERS = ["three", "gsap", "@kaleido/sdk"] as const;
 
 const FORBIDDEN_SOURCE = [
   { pattern: /\bfetch\s*\(/, label: "fetch" },
@@ -78,39 +30,46 @@ const FORBIDDEN_SOURCE = [
   { pattern: /\bpostMessage\s*\(/, label: "消息通道访问" },
 ];
 
+/** 提取所有 `... from "x"` 与副作用 `import "x"` 的模块说明符。 */
+function extractSpecifiers(source: string): string[] {
+  const specs: string[] = [];
+  for (const re of [/\bfrom\s*["']([^"']+)["']/g, /\bimport\s*["']([^"']+)["']/g]) {
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(source)) !== null) specs.push(match[1]);
+  }
+  return specs;
+}
+
 /**
- * 对 Agent 生成的入口做静态边界校验。真正执行仍发生在无同源权限的 iframe 中。
+ * 对 Effect 入口做静态安全校验。入口是真 ESM（ADE 原始源或 CLI 打包产物均可）。
+ * 结构正确性（默认导出 + setup()）由运行时加载后检查，这里只负责安全边界：
+ * 体积、禁用 API、以及裸依赖白名单。运行时最终防线是 iframe 沙箱 + CSP。
  */
 export function validateEffectSource(source: string): void {
-  if (!source.trim()) throw new Error("index.ts 不能为空");
-  if (source.length > 20_000) throw new Error("index.ts 不能超过 20000 字符");
-
+  if (!source.trim()) throw new Error("入口不能为空");
+  if (source.length > LIMITS.maxEntryBytes) {
+    throw new Error(`入口不能超过 ${LIMITS.maxEntryBytes} 字节`);
+  }
   for (const { pattern, label } of FORBIDDEN_SOURCE) {
-    if (pattern.test(source)) throw new Error(`index.ts 不允许使用 ${label}`);
+    if (pattern.test(source)) throw new Error(`入口不允许使用 ${label}`);
   }
-
-  let body = source;
-  for (const pattern of IMPORT_PATTERNS) body = body.replace(pattern, "");
-  if (/\bimport\s/.test(body)) {
-    throw new Error("index.ts 只能导入 three、gsap 和 @kaleido/sdk");
-  }
-  if (!/export\s+default\s+defineEffect\s*\(/.test(body)) {
-    throw new Error("index.ts 必须默认导出 defineEffect(...) ");
-  }
-  if (!/\bsetup\s*\(/.test(body)) {
-    throw new Error("Effect 必须实现 setup() 生命周期");
-  }
-  if (/\bexport\s+(?!default\s+defineEffect)/.test(body)) {
-    throw new Error("index.ts 只允许一个默认导出");
+  for (const spec of extractSpecifiers(source)) {
+    if (!ALLOWED_SPECIFIERS.includes(spec as (typeof ALLOWED_SPECIFIERS)[number])) {
+      throw new Error(`入口只能导入 ${ALLOWED_SPECIFIERS.join("、")}，检测到：${spec}`);
+    }
   }
 }
 
-/** 将受限 ESM 入口转换成 iframe 内可执行的工厂函数体。 */
-export function transformEffectSource(source: string): string {
-  validateEffectSource(source);
-  let body = source;
-  for (const pattern of IMPORT_PATTERNS) body = body.replace(pattern, "");
-  return body.replace(/export\s+default\s+/, "return ");
+/**
+ * 把入口里的裸依赖 import 重写为运行时可加载的 vendor URL（配合 blob + 原生 import()）。
+ * 只重写白名单说明符；validateEffectSource 已保证不存在其它导入。
+ */
+export function rewriteEffectImports(source: string, vendor: Record<string, string>): string {
+  return source.replace(
+    /\b(from|import)(\s*)(["'])(three|gsap|@kaleido\/sdk)\3/g,
+    (_full, keyword: string, ws: string, quote: string, name: string) =>
+      `${keyword}${ws}${quote}${vendor[name] ?? name}${quote}`,
+  );
 }
 
 /**

@@ -182,6 +182,42 @@ describe('services', () => {
       await b.VersionService.create(e.id, u.id, { version: '1.1.0', ...base })
       expect((await b.VersionService.list(e.id, u.id)).length).toBe(2)
     })
+    it('多资源落库并可被 owner 通过 getArtifact 读回', async () => {
+      const u = await createUser()
+      const e = await b.EffectService.create({ ownerId: u.id, slug: uniq('vasset'), name: 'N' })
+      const v = await b.VersionService.create(e.id, u.id, {
+        version: '1.0.0',
+        entry: 'entry.mjs',
+        sdkVersion: '0.1.0',
+        schemaVersion: '2',
+        manifestJson: '{}',
+        code: Buffer.from('export default {}').toString('base64'),
+        assets: [{ path: 'assets/a.png', mime: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') }],
+      })
+      const art = await b.VersionService.getArtifact(e.id, v.id, u.id)
+      expect(art.entry.path).toBe('entry.mjs')
+      expect(Buffer.from(art.entry.data, 'base64').toString()).toContain('export default')
+      expect(art.assets).toHaveLength(1)
+      expect(art.assets[0]?.path).toBe('assets/a.png')
+    })
+    it('getArtifact 对他人私有版本抛 404', async () => {
+      const u = await createUser()
+      const viewer = await createUser()
+      const e = await b.EffectService.create({ ownerId: u.id, slug: uniq('vpriv'), name: 'N' })
+      const v = await b.VersionService.create(e.id, u.id, { version: '1.0.0', ...base })
+      await expect(b.VersionService.getArtifact(e.id, v.id, viewer.id)).rejects.toMatchObject({ status: 404 })
+    })
+    it('create 拒绝穿越 path / 非法 mime / 超大资源', async () => {
+      const u = await createUser()
+      const e = await b.EffectService.create({ ownerId: u.id, slug: uniq('vguard'), name: 'N' })
+      const good = { version: '1.0.0', entry: 'entry.mjs', sdkVersion: '0.1.0', schemaVersion: '2', manifestJson: '{}', code: 'YQ==' }
+      await expect(
+        b.VersionService.create(e.id, u.id, { ...good, assets: [{ path: '../evil', mime: 'image/png', data: 'YQ==' }] }),
+      ).rejects.toMatchObject({ status: 422 })
+      await expect(
+        b.VersionService.create(e.id, u.id, { ...good, assets: [{ path: 'a.txt', mime: 'text/plain', data: 'YQ==' }] }),
+      ).rejects.toMatchObject({ status: 415 })
+    })
   })
 
   describe('DraftService', () => {

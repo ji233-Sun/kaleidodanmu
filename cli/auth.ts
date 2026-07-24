@@ -4,24 +4,21 @@
 
 import { spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import {
+  credentialsPath,
+  loadCredentials,
+  resolveBaseUrl,
+  saveCredentials,
+} from './config'
 
-const DEFAULT_BASE_URL = 'http://localhost:3000'
+export { resolveBaseUrl } from './config'
+
 const CLIENT_ID = 'kaleido-cli'
 // 与 types/oauth.ts 的 SCOPE_CATALOG 对齐（CLI 独立打包，不 import 应用代码）
 const SCOPES = ['profile:read', 'effects:read', 'effects:write', 'square:publish']
 const CALLBACK_TIMEOUT_MS = 3 * 60 * 1000
-
-interface Credentials {
-  baseUrl: string
-  token: string
-  expiresAt: string | null
-  scopes: string[]
-}
 
 interface CallbackResult {
   code: string | null
@@ -38,27 +35,6 @@ interface TokenResponseBody {
 
 interface MeResponseBody {
   user?: { email: string; id: number }
-}
-
-const credentialsPath = () => join(homedir(), '.kdanmu', 'credentials.json')
-
-export function resolveBaseUrl(opt?: string): string {
-  return (opt ?? process.env.KDANMU_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
-}
-
-function saveCredentials(creds: Credentials): void {
-  const path = credentialsPath()
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify(creds, null, 2))
-  chmodSync(path, 0o600)
-}
-
-function loadCredentials(): Credentials | null {
-  try {
-    return JSON.parse(readFileSync(credentialsPath(), 'utf8')) as Credentials
-  } catch {
-    return null
-  }
 }
 
 function openBrowser(url: string): boolean {
@@ -172,15 +148,35 @@ export async function login(options: { baseUrl?: string; open?: boolean }): Prom
   console.log(`登录成功，凭证已保存到 ${credentialsPath()}`)
 }
 
-export async function whoami(): Promise<void> {
+function whoamiFail(json: boolean, code: string, message: string): void {
+  if (json) console.log(JSON.stringify({ ok: false, error: { code, message } }))
+  else console.error(`错误：${message}`)
+  process.exitCode = 1
+}
+
+export async function whoami(opts: { json?: boolean } = {}): Promise<void> {
+  const json = opts.json ?? false
   const creds = loadCredentials()
-  if (!creds) throw new Error('未登录，请先执行 kdanmu login')
-  const res = await fetch(`${creds.baseUrl}/api/auth/me`, {
-    headers: { authorization: `Bearer ${creds.token}` },
-  })
+  if (!creds) return whoamiFail(json, 'not_logged_in', '未登录，请先执行 kdanmu login')
+  let res: Response
+  try {
+    res = await fetch(`${creds.baseUrl}/api/auth/me`, {
+      headers: { authorization: `Bearer ${creds.token}` },
+    })
+  } catch (e) {
+    return whoamiFail(json, 'network_error', `无法连接后端 ${creds.baseUrl}：${e instanceof Error ? e.message : String(e)}`)
+  }
   const data = (await res.json().catch(() => null)) as MeResponseBody | null
   if (!res.ok || !data?.user) {
-    throw new Error(res.status === 401 ? '凭证已失效，请重新执行 kdanmu login' : `查询失败：HTTP ${res.status}`)
+    return whoamiFail(
+      json,
+      res.status === 401 ? 'unauthorized' : 'error',
+      res.status === 401 ? '凭证已失效，请重新执行 kdanmu login' : `查询失败：HTTP ${res.status}`,
+    )
   }
-  console.log(`已登录：${data.user.email}（id: ${data.user.id}，${creds.baseUrl}）`)
+  if (json) {
+    console.log(JSON.stringify({ ok: true, user: data.user, baseUrl: creds.baseUrl, scopes: creds.scopes }))
+  } else {
+    console.log(`已登录：${data.user.email}（id: ${data.user.id}，${creds.baseUrl}）`)
+  }
 }

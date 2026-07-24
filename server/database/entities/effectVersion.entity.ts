@@ -36,8 +36,11 @@ export class EffectVersion {
   @Column({ name: 'manifest_json', type: 'text', nullable: false })
   manifestJson!: string // 完整 effect.json 快照
 
+  @Column({ name: 'assets_json', type: 'text', nullable: true })
+  assetsJson!: string | null // 资源清单 [{path, mime, sha256, sizeBytes, storageKey}]，单文件包为 null
+
   @Column({ name: 'storage_key', type: 'text', nullable: false })
-  storageKey!: string // 指向本地 ArtifactStore / 对象存储中的产物
+  storageKey!: string // 指向本地 ArtifactStore / 对象存储中的入口产物
 
   @Column({ name: 'created_by', type: 'integer', nullable: false })
   createdBy!: number
