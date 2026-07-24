@@ -52,12 +52,14 @@ jobs:
           pnpm build:sdk
           pnpm build:cli
 
-      - name: Publish @kaleido/sdk
-        run: pnpm --filter @kaleido/sdk publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      - name: Publish kdanmu CLI
+        run: pnpm --filter kdanmu publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish kdanmu CLI
-        run: pnpm --filter kdanmu publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      # @kaleido/sdk 需要 npm 上存在 kaleido 组织；组织就绪前允许失败，不阻塞 kdanmu 发布。
+      - name: Publish @kaleido/sdk
+        continue-on-error: true
+        run: pnpm --filter @kaleido/sdk publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
