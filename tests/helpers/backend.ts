@@ -37,6 +37,11 @@ export async function useBackend() {
     cryptoMod,
     httpMod,
     jwtMod,
+    follow,
+    likeRepo,
+    favoriteRepo,
+    coinRepo,
+    userFollowRepo,
   ] = await Promise.all([
     import('@/server/services/auth.service'),
     import('@/server/services/effect.service'),
@@ -60,6 +65,11 @@ export async function useBackend() {
     import('@/server/utils/crypto'),
     import('@/server/utils/http'),
     import('@/server/utils/jwt'),
+    import('@/server/services/follow.service'),
+    import('@/server/repositories/effectLike.repository'),
+    import('@/server/repositories/effectFavorite.repository'),
+    import('@/server/repositories/effectCoin.repository'),
+    import('@/server/repositories/userFollow.repository'),
   ])
 
   const cleanup = async () => {
@@ -108,6 +118,11 @@ export async function useBackend() {
     HttpError: httpMod.HttpError,
     signSessionToken: jwtMod.signSessionToken,
     verifySessionToken: jwtMod.verifySessionToken,
+    FollowService: follow.FollowService,
+    EffectLikeRepository: likeRepo.EffectLikeRepository,
+    EffectFavoriteRepository: favoriteRepo.EffectFavoriteRepository,
+    EffectCoinRepository: coinRepo.EffectCoinRepository,
+    UserFollowRepository: userFollowRepo.UserFollowRepository,
   }
 }
 
