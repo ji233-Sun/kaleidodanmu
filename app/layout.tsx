@@ -13,9 +13,26 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description = "用一句话创造画面、动画与交互 —— AI 原生的可视化创作平台";
+
 export const metadata: Metadata = {
-  title: "自由 Canvas",
-  description: "用一句话创造画面、动画与交互 —— AI 原生的自由 Canvas",
+  title: {
+    default: "Kaleido Danmu",
+    template: "%s · Kaleido Danmu",
+  },
+  description,
+  applicationName: "Kaleido Danmu",
+  // 生产环境改为真实域名；此处仅用于解析 OG 图片相对路径
+  metadataBase: new URL("http://localhost:3000"),
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon-bg-white.svg" }],
+  },
+  openGraph: {
+    title: "Kaleido Danmu",
+    description,
+    images: [{ url: "/logo.webp", alt: "Kaleido Danmu" }],
+  },
 };
 
 export default function RootLayout({

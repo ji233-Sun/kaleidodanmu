@@ -105,7 +105,7 @@ export function LlmPanel() {
       });
       setSaved(config);
       setApiKey("");
-      setNotice("已保存，Canvas Agent 将使用你的模型");
+      setNotice("已保存，Kaleido Danmu Agent 将使用你的模型");
     } catch (e) {
       setError(errMessage(e));
     } finally {
@@ -115,7 +115,7 @@ export function LlmPanel() {
 
   const remove = async () => {
     if (removing) return;
-    if (!window.confirm("确定删除自带模型配置吗？Canvas Agent 将回退到平台内置模型。")) return;
+    if (!window.confirm("确定删除自带模型配置吗？Kaleido Danmu Agent 将回退到平台内置模型。")) return;
     setRemoving(true);
     setError(null);
     setNotice(null);
@@ -162,11 +162,11 @@ export function LlmPanel() {
     <div className="space-y-6">
       <section className="rounded-2xl border border-line bg-card p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold text-ink">Canvas Agent 模型</h2>
+          <h2 className="text-sm font-semibold text-ink">Kaleido Danmu Agent 模型</h2>
           {saved ? <Badge hue="green">自带模型</Badge> : <Badge hue="blue">平台内置</Badge>}
         </div>
         <p className="mt-1 text-xs text-ink-3">
-          配置你自己的 LLM（BYOK），Studio 的 Canvas Agent 将优先使用它；未配置时使用平台内置模型。
+          配置你自己的 LLM（BYOK），Studio 的 Kaleido Danmu Agent 将优先使用它；未配置时使用平台内置模型。
           API Key 加密存储在服务端，仅用于代理转发，不会回传给页面。
         </p>
 

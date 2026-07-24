@@ -20,7 +20,7 @@ export function KaleidoPlayer({
   recipe,
   effectSource = DEFAULT_EFFECT_SOURCE,
   seed = 42,
-  title = "【演示】自由 Canvas · 概念视频",
+  title = "【演示】Kaleido Danmu · 概念视频",
   autoPlay = true,
   onEffectError,
 }: {
@@ -248,7 +248,7 @@ export function KaleidoPlayer({
       />
 
       {/* 隔离的 Canvas / WebGL Effect 层 */}
-      <div className="absolute inset-0 z-[5]">
+      <div className="absolute inset-0 z-5">
         <EffectSandbox
           ref={effectRef}
           source={effectSource}
@@ -260,7 +260,7 @@ export function KaleidoPlayer({
       </div>
 
       {showDanmakuList && source === "vod" && (
-        <aside className="absolute top-12 right-3 bottom-16 z-[9] w-64 overflow-hidden rounded-lg border border-white/15 bg-black/80 text-white shadow-xl">
+        <aside className="absolute top-12 right-3 bottom-16 z-9 w-64 overflow-hidden rounded-lg border border-white/15 bg-black/80 text-white shadow-xl">
           <div className="flex items-center border-b border-white/10 px-3 py-2">
             <span className="text-xs font-medium">VOD 弹幕时间轴</span>
             <span className="ml-auto text-[10px] text-white/50">{vodEvents.length} 条</span>
@@ -293,7 +293,7 @@ export function KaleidoPlayer({
       {/* 顶栏 */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 z-[8] bg-gradient-to-b from-black/75 to-transparent px-4 pt-3 pb-8 text-sm text-white transition-opacity",
+          "pointer-events-none absolute inset-x-0 top-0 z-8 bg-linear-to-b from-black/75 to-transparent px-4 pt-3 pb-8 text-sm text-white transition-opacity",
           showUI ? "opacity-100" : "opacity-0",
         )}
       >
@@ -303,7 +303,7 @@ export function KaleidoPlayer({
       {/* FPS + 数据源徽标 */}
       <div
         className={cn(
-          "absolute top-3 right-3 z-[8] flex items-center gap-2 transition-opacity",
+          "absolute top-3 right-3 z-8 flex items-center gap-2 transition-opacity",
           showUI ? "opacity-100" : "opacity-0",
         )}
       >
@@ -323,7 +323,7 @@ export function KaleidoPlayer({
 
       {/* 暂停大图标 */}
       {!playing && (
-        <div className="pointer-events-none absolute top-1/2 left-1/2 z-[7] flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
           <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
             <path d="M8 5v14l11-7z" />
           </svg>
@@ -333,7 +333,7 @@ export function KaleidoPlayer({
       {/* 控制条 */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black/85 via-black/60 to-transparent px-3 pb-2 transition-opacity",
+          "absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-black/85 via-black/60 to-transparent px-3 pb-2 transition-opacity",
           showUI ? "opacity-100" : "opacity-0",
         )}
       >

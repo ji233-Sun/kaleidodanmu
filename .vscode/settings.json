@@ -1,15 +1,26 @@
 {
     "cSpell.words": [
         "bili",
+        "BYOK",
+        "centered",
         "Danmaku",
         "DANMU",
+        "deepseek",
+        "efgh",
+        "Elem",
         "elems",
         "fontsize",
         "gsap",
         "kaleido",
         "kaleidodanmu",
         "kdanmu",
+        "nums",
         "OPFS",
-        "PKCE"
-    ]
+        "PKCE",
+        "wxyz"
+    ],
+    "markdownlint.config": {
+        "no-inline-html": false,
+        "first-line-h1": false
+    }
 }

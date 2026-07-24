@@ -139,8 +139,8 @@ export default function MinePage() {
 
       {!hydrated ? null : effects.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-line bg-card py-20">
-          <span className="h-8 w-8 rotate-45 rounded-lg bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink opacity-60" />
-          <p className="text-sm text-ink-2">还没有作品，用一句话创建你的第一个 Canvas 作品吧</p>
+          <span className="h-8 w-8 rotate-45 rounded-lg bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink opacity-60" />
+          <p className="text-sm text-ink-2">还没有作品，用一句话创建你的第一个 Kaleido Danmu 作品吧</p>
           <Link href="/" className="text-sm font-medium text-bili-pink hover:underline">
             去创建 →
           </Link>

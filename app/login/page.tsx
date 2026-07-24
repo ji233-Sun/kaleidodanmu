@@ -35,7 +35,7 @@ function LoginInner() {
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-10">
       <h1 className="text-2xl font-bold text-ink">登录</h1>
       <p className="mt-1 mb-6 text-sm text-ink-2">
-        欢迎回来，继续你的 Canvas 创作。
+        欢迎回来，继续你的 Kaleido Danmu 创作。
       </p>
       <div className="rounded-2xl border border-line bg-card p-6">
         <AuthForm mode="login" next={next} />

@@ -35,7 +35,7 @@ function RegisterInner() {
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-10">
       <h1 className="text-2xl font-bold text-ink">注册</h1>
       <p className="mt-1 mb-6 text-sm text-ink-2">
-        创建一个账号，保存并分享你的 Canvas 作品。
+        创建一个账号，保存并分享你的 Kaleido Danmu 作品。
       </p>
       <div className="rounded-2xl border border-line bg-card p-6">
         <AuthForm mode="register" next={next} />

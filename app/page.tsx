@@ -31,11 +31,11 @@ export default function Home() {
       {/* 装饰弹幕轨道 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_15%,#000_70%,transparent)]"
+        className="pointer-events-none absolute inset-0 overflow-hidden mask-[linear-gradient(to_bottom,transparent,#000_15%,#000_70%,transparent)]"
       >
         {[
           { top: "12%", dur: "19s", delay: "-4s", color: "#00a1d6", text: "这弹幕会开花！" },
-          { top: "22%", dur: "24s", delay: "-13s", color: "#fb7299", text: "这个 Canvas 效果绝了" },
+          { top: "22%", dur: "24s", delay: "-13s", color: "#fb7299", text: "这个效果绝了" },
           { top: "68%", dur: "21s", delay: "-8s", color: "#8b7cf6", text: "镜像对称好美" },
           { top: "80%", dur: "26s", delay: "-17s", color: "#7ee0a3", text: "AI 生成的特效？！" },
           { top: "88%", dur: "18s", delay: "-2s", color: "#ffd166", text: "这配方我抄了" },
@@ -56,19 +56,19 @@ export default function Home() {
         </span>
         <h1 className="mt-7 text-4xl leading-tight font-black tracking-tight text-ink sm:text-5xl">
           让弹幕
-          <span className="bg-gradient-to-r from-bili-blue via-bili-purple to-bili-pink bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-bili-blue via-bili-purple to-bili-pink bg-clip-text text-transparent">
             长出新的表现力
           </span>
         </h1>
         <p className="mt-5 max-w-xl text-base leading-7 text-ink-2">
-          描述弹幕应该如何出现、移动、聚合或回应画面。Canvas Agent 会把每一条消息变成可感知的视觉事件，
+          描述弹幕应该如何出现、移动、聚合或回应画面。Kaleido Danmu Agent 会把每一条消息变成可感知的视觉事件，
           在浏览器里创作、自校验、刷新预览。
         </p>
 
         {/* 一句话创建 */}
         <div className="mt-10 w-full">
           <div className="flex items-center gap-2 rounded-2xl border border-line bg-card p-2 shadow-[0_8px_40px_rgba(24,25,28,.08)] transition-colors focus-within:border-bili-pink">
-            <span className="ml-2 hidden h-6 w-6 flex-none items-center justify-center rounded-lg bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-xs font-bold text-white sm:flex">
+            <span className="ml-2 hidden h-6 w-6 flex-none items-center justify-center rounded-lg bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-xs font-bold text-white sm:flex">
               K
             </span>
             <input
@@ -83,7 +83,7 @@ export default function Home() {
             <button
               onClick={() => create(prompt)}
               disabled={!prompt.trim()}
-              className="h-11 flex-none rounded-xl bg-gradient-to-r from-bili-blue via-bili-purple to-bili-pink px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="h-11 flex-none rounded-xl bg-linear-to-r from-bili-blue via-bili-purple to-bili-pink px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               开始编排弹幕
             </button>

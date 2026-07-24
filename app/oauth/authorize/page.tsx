@@ -79,8 +79,8 @@ function AuthorizeForm() {
     <main className="mx-auto flex w-full max-w-md flex-1 items-center px-6 py-10">
       <div className="w-full rounded-2xl border border-line bg-card p-6 shadow-lg">
         <div className="mb-5 flex items-center gap-2">
-          <span className="h-5 w-5 rotate-45 rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink" />
-          <span className="text-sm font-bold text-ink">自由 Canvas · 授权</span>
+          <span className="h-5 w-5 rotate-45 rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink" />
+          <span className="text-sm font-bold text-ink">Kaleido Danmu · 授权</span>
         </div>
 
         {paramError ? (

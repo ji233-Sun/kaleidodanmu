@@ -18,8 +18,8 @@ import { LlmPanel } from "@/components/profile/llm-panel";
 /** 授权 scope 目录（与 app/oauth/authorize/page.tsx 的 SCOPE_CATALOG 对齐） */
 const SCOPE_CATALOG: Record<string, string> = {
   "profile:read": "读取你的基本资料（昵称、头像）",
-  "effects:read": "查看你的 Canvas 作品",
-  "effects:write": "创建、修改和删除你的 Canvas 作品",
+  "effects:read": "查看你的 Kaleido Danmu 作品",
+  "effects:write": "创建、修改和删除你的 Kaleido Danmu 作品",
   "square:publish": "将作品发布到创作广场",
 };
 
@@ -467,7 +467,7 @@ export default function SettingsPage() {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-line bg-card py-20">
-          <span className="h-8 w-8 rotate-45 rounded-lg bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink opacity-60" />
+          <span className="h-8 w-8 rotate-45 rounded-lg bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink opacity-60" />
           <p className="text-sm text-ink-2">登录后才能管理设置</p>
           <Link href="/login?next=/settings">
             <Button size="sm">去登录</Button>

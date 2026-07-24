@@ -28,11 +28,11 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-line bg-card/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:h-14 sm:flex-nowrap sm:gap-8 sm:px-6 sm:py-0">
         <Link href="/" className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-          <span className="h-5 w-5 rotate-45 rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink shadow-[0_0_14px_rgba(124,92,252,.5)]" />
-          <span className="text-lg font-bold tracking-tight text-ink">自由 Canvas</span>
-          <span className="hidden text-xs font-medium text-ink-3 sm:inline">CANVAS</span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 品牌图标，用原生 img 避免 SVG 走 next/image 配置 */}
+          <img src="/logo.svg" alt="Kaleido Danmu" className="h-6 w-6 shrink-0" />
+          <span className="text-lg font-bold tracking-tight text-ink">Kaleido Danmu</span>
         </Link>
-        <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto sm:justify-start">
+        <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-0 sm:w-auto sm:justify-start">
           {LINKS.map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);

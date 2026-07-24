@@ -195,7 +195,7 @@ export function AgentChat({
   const runAgent = useCallback(
     async (instruction: string, currentRecipe: Recipe | null, currentEntrySource?: string) => {
       if (!user) {
-        push({ role: "assistant", text: "登录后才能使用 Canvas Agent 创建或调整作品。" });
+        push({ role: "assistant", text: "登录后才能使用 Kaleido Danmu Agent 创建或调整作品。" });
         return;
       }
       setBusyState(true);
@@ -398,10 +398,10 @@ export function AgentChat({
   return (
     <div className={cn("flex min-h-0 flex-col overflow-hidden", className)}>
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-        <span className="flex h-5.5 w-5.5 items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
+        <span className="flex h-5.5 w-5.5 items-center justify-center rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
           K
         </span>
-        <span className="text-sm font-semibold text-ink">Canvas Agent</span>
+        <span className="text-sm font-semibold text-ink">Kaleido Danmu Agent</span>
         <span className="rounded-full bg-bili-blue-light px-2 py-0.5 text-[11px] text-bili-blue">
           浏览器内 Agent
         </span>
@@ -416,7 +416,7 @@ export function AgentChat({
           {/* intro 只做临时展示（随 version 实时变化），不进 msgs、不持久化。 */}
           {intro && (
             <div className="flex gap-2.5">
-              <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
+              <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
                 K
               </span>
               <div className="max-w-[85%] whitespace-pre-wrap text-sm leading-6 text-ink">
@@ -470,7 +470,7 @@ export function AgentChat({
             if (m.role === "reasoning") {
               return (
                 <div key={i} className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white opacity-60">
+                  <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white opacity-60">
                     K
                   </span>
                   <details className="max-w-[85%] rounded-lg border border-line bg-fill/40 px-3 py-1.5 text-xs text-ink-3">
@@ -484,7 +484,7 @@ export function AgentChat({
             }
             return (
               <div key={i} className="flex gap-2.5">
-                <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
+                <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
                   K
                 </span>
                 <div className="max-w-[85%] whitespace-pre-wrap text-sm leading-6 text-ink">
