@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { gsap } from "gsap";
-import { defineEffect, assetUrl, type DanmakuEvent, type EffectViewport } from "@kaleido/sdk";
+import { defineEffect, assetUrl, type DanmakuEvent, type EffectViewport } from "kdanmu-sdk";
 
 // 资源引用约定：把文件放到本工程的 assets/ 目录，运行时用 assetUrl("相对路径") 取得可用 URL。
 // 例如： const tex = new THREE.TextureLoader().load(assetUrl("bg.png"));

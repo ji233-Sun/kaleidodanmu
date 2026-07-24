@@ -2,7 +2,7 @@
 // 直接在页面里运行 Effect，注入 mock 弹幕、显示 FPS 与错误，并支持 Vite HMR。
 import * as THREE from "three";
 import { gsap } from "gsap";
-import type { DanmakuEvent, EffectDefinition, EffectInstance } from "@kaleido/sdk";
+import type { DanmakuEvent, EffectDefinition, EffectInstance } from "kdanmu-sdk";
 import effectDef from "../src/index";
 
 const canvas = document.getElementById("c") as HTMLCanvasElement;

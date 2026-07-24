@@ -44,7 +44,7 @@ jobs:
       - name: Set package versions
         if: env.PKG_VERSION != ''
         run: |
-          pnpm --filter @kaleido/sdk exec npm version "$PKG_VERSION" --no-git-tag-version --allow-same-version
+          pnpm --filter kdanmu-sdk exec npm version "$PKG_VERSION" --no-git-tag-version --allow-same-version
           pnpm --filter kdanmu exec npm version "$PKG_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build SDK and CLI
@@ -52,14 +52,12 @@ jobs:
           pnpm build:sdk
           pnpm build:cli
 
-      - name: Publish kdanmu CLI
-        run: pnpm --filter kdanmu publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      - name: Publish kdanmu-sdk
+        run: pnpm --filter kdanmu-sdk publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # @kaleido/sdk 需要 npm 上存在 kaleido 组织；组织就绪前允许失败，不阻塞 kdanmu 发布。
-      - name: Publish @kaleido/sdk
-        continue-on-error: true
-        run: pnpm --filter @kaleido/sdk publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      - name: Publish kdanmu CLI
+        run: pnpm --filter kdanmu publish --no-git-checks ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

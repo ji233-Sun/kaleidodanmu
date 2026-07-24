@@ -6,7 +6,7 @@ import { sanitizeSlug, mimeForPath } from '@/cli/project'
 import { collectAndValidate } from '@/cli/build'
 import { SCHEMA_VERSION, SDK_VERSION } from '@/types/manifest'
 
-const VALID_ENTRY = `import { defineEffect } from "@kaleido/sdk";
+const VALID_ENTRY = `import { defineEffect } from "kdanmu-sdk";
 export default defineEffect({ setup() { return { render() {}, resize() {}, dispose() {} }; } });`
 
 function baseManifest() {

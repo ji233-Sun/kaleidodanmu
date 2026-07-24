@@ -11,7 +11,7 @@ export const SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/
 /** Manifest 结构版本：从 "1"（new Function 源码）升到 "2"（真 ESM 加载）。 */
 export const SCHEMA_VERSION = '2'
 
-/** 当前 @kaleido/sdk 契约版本。 */
+/** 当前 kdanmu-sdk 契约版本。 */
 export const SDK_VERSION = '0.1.0'
 
 /** 资源与体积限额（服务端与 CLI 共同强制）。 */
@@ -46,7 +46,7 @@ export const SafePathSchema = z
 
 const HexColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}){1,2}$/)
 
-/** 兼容配方：现有存储与播放器的声明式基础参数（与 @kaleido/sdk 的 Recipe 接口对应）。 */
+/** 兼容配方：现有存储与播放器的声明式基础参数（与 kdanmu-sdk 的 Recipe 接口对应）。 */
 export const RecipeSchema = z
   .object({
     symmetry: z.number().int().min(3).max(12),

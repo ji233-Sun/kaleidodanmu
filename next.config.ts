@@ -4,7 +4,7 @@ const runtimeConnectSource =
   process.env.NODE_ENV === "development" ? "connect-src 'self' ws:" : "connect-src 'none'";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@kaleido/sdk"],
+  transpilePackages: ["kdanmu-sdk"],
   serverExternalPackages: ["better-sqlite3", "typeorm"],
   async headers() {
     return [
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // 运行时 vendor（three/gsap/@kaleido-sdk）由不透明源沙箱跨源以模块方式加载，需要 CORS。
+        // 运行时 vendor（three/gsap/kdanmu-sdk）由不透明源沙箱跨源以模块方式加载，需要 CORS。
         source: "/kaleido-runtime/vendor/:path*",
         headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
       },

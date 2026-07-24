@@ -1,4 +1,4 @@
-// Effect 生命周期与运行时协议类型现由 @kaleido/sdk 统一定义；这里 re-export 以保持既有导入路径。
+// Effect 生命周期与运行时协议类型现由 kdanmu-sdk 统一定义；这里 re-export 以保持既有导入路径。
 export type {
   EffectViewport,
   EffectFrame,
@@ -9,12 +9,12 @@ export type {
   RuntimeCommand,
   RuntimeEvent,
   RuntimeAsset,
-} from "@kaleido/sdk";
+} from "kdanmu-sdk";
 
 import { LIMITS } from "@/types/manifest";
 
 /** 允许的裸依赖说明符；其余（相对路径、URL、其他包）一律拒绝。 */
-export const ALLOWED_SPECIFIERS = ["three", "gsap", "@kaleido/sdk"] as const;
+export const ALLOWED_SPECIFIERS = ["three", "gsap", "kdanmu-sdk"] as const;
 
 const FORBIDDEN_SOURCE = [
   { pattern: /\bfetch\s*\(/, label: "fetch" },
@@ -66,7 +66,7 @@ export function validateEffectSource(source: string): void {
  */
 export function rewriteEffectImports(source: string, vendor: Record<string, string>): string {
   return source.replace(
-    /\b(from|import)(\s*)(["'])(three|gsap|@kaleido\/sdk)\3/g,
+    /\b(from|import)(\s*)(["'])(three|gsap|kdanmu-sdk)\3/g,
     (_full, keyword: string, ws: string, quote: string, name: string) =>
       `${keyword}${ws}${quote}${vendor[name] ?? name}${quote}`,
   );
@@ -77,7 +77,7 @@ export function rewriteEffectImports(source: string, vendor: Record<string, stri
  */
 export const DEFAULT_EFFECT_SOURCE = `import * as THREE from "three";
 import { gsap } from "gsap";
-import { defineEffect } from "@kaleido/sdk";
+import { defineEffect } from "kdanmu-sdk";
 
 export default defineEffect({
   setup({ canvas, recipe }) {

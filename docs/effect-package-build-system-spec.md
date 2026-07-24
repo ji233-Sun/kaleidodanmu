@@ -9,20 +9,20 @@
 | --- | --- |
 | build 产物契约 | **Vite `build.lib` → 真 ESM**（外置 three/gsap） |
 | v1 打包范围 | **多文件 + 静态资源**（图片/音频/json，非 JS 资源） |
-| 代码组织 | **抽到 `packages/` workspace**（`@kaleido/sdk` 等共享包） |
+| 代码组织 | **抽到 `packages/` workspace**（`kdanmu-sdk` 等共享包） |
 
 ### 0.1 核心架构收敛点（基石）
 
 ADE 生成的受限单文件源码**本身就是一个合法 ES Module**：它以 `import * as THREE from "three"` /
-`import { gsap } from "gsap"` / `import { defineEffect } from "@kaleido/sdk"` 开头，以
+`import { gsap } from "gsap"` / `import { defineEffect } from "kdanmu-sdk"` 开头，以
 `export default defineEffect(...)` 结尾。因此：
 
 - **运行时统一改为**：把「模块文本」转成 `Blob` → `URL.createObjectURL` → `await import(blobUrl)` → 取
-  `mod.default`。裸依赖 `three` / `gsap` / `@kaleido/sdk` **由运行时把入口里的 import 说明符重写为同源 vendor
+  `mod.default`。裸依赖 `three` / `gsap` / `kdanmu-sdk` **由运行时把入口里的 import 说明符重写为同源 vendor
   URL**（`/kaleido-runtime/vendor/*.mjs`），无需 import map；vendor 由 esbuild 预打包成自包含 ESM。
 - ADE 源码（未打包）与 CLI 的 Vite bundle（已打包、three/gsap 外置）走**完全相同**的加载路径。
 - 删除现有 `new Function(...)` + 正则剥 import 的执行方式（`transformEffectSource`）。
-- `@kaleido/sdk` 从"虚拟 import"变成**真实包**，同样重写为 vendor URL 加载。
+- `kdanmu-sdk` 从"虚拟 import"变成**真实包**，同样重写为 vendor URL 加载。
 
 ### 0.2 "多文件"的准确含义（避免误期望）
 
@@ -60,8 +60,8 @@ my-effect/
 ├── src/
 │   └── index.ts         # 入口，export default defineEffect({...})，可 import 其他 src 模块
 ├── assets/              # 静态资源（可选）：png/jpg/webp/mp3/ogg/json
-├── package.json         # 依赖 @kaleido/sdk（workspace/发布版），devDep vite
-├── vite.config.ts       # build.lib es，external: three/gsap/@kaleido/sdk
+├── package.json         # 依赖 kdanmu-sdk（workspace/发布版），devDep vite
+├── vite.config.ts       # build.lib es，external: three/gsap/kdanmu-sdk
 ├── tsconfig.json
 └── .gitignore
 ```
@@ -70,7 +70,7 @@ my-effect/
 
 ```
 dist/
-├── entry.mjs            # bundled ESM（三方 three/gsap/@kaleido/sdk 保留为裸 import）
+├── entry.mjs            # bundled ESM（三方 three/gsap/kdanmu-sdk 保留为裸 import）
 ├── assets/...           # 处理后的静态资源
 └── effect.json          # 补全 sha256/size/assets 的最终 Manifest
 ```
@@ -108,7 +108,7 @@ export const EffectManifestSchema = z.object({
 }).strict()
 ```
 
-- `RecipeSchema` 从 `lib/ade/project.ts` 提取到 `types/`（或 `@kaleido/sdk`），保持单一来源。
+- `RecipeSchema` 从 `lib/ade/project.ts` 提取到 `types/`（或 `kdanmu-sdk`），保持单一来源。
 - 校验规则：semver、entry 存在、资源 path 无穿越、mime 白名单、逐项与总体积上限、资源数上限。
 
 ## 4. 上传契约变更（`types/version.ts` + 服务端）
@@ -150,18 +150,18 @@ export const CreateVersionSchema = z.object({
 
 > 每个里程碑结束后运行 `pnpm test` + `pnpm lint` + 相关 `tsc`，通过再进下一步。
 
-### M0 — Workspace 化 + `@kaleido/sdk` 包骨架
+### M0 — Workspace 化 + `kdanmu-sdk` 包骨架
 - `pnpm-workspace.yaml` 增加 `packages: ['packages/*']`。
-- 新建 `packages/sdk`：`package.json`（name `@kaleido/sdk`、`type:module`、exports、peerDeps
+- 新建 `packages/sdk`：`package.json`（name `kdanmu-sdk`、`type:module`、exports、peerDeps
   three@0.185.1 / gsap@3.15.0、用 tsup 出 ESM + d.ts）、`src/index.ts`（`defineEffect` 为 identity、
   资源解析 API `assetUrl`）、`src/types.ts`（迁移 `EffectDefinition/EffectInstance/EffectViewport/
   EffectFrame/EffectPointerEvent/DanmakuEvent/Recipe/RuntimeCommand/RuntimeEvent`）。
-- 根 `package.json` 增 `"@kaleido/sdk": "workspace:*"`。
-- 回接：`lib/runtime/effect.ts`、`lib/types.ts` 改为从 `@kaleido/sdk` re-export，避免漂移与破坏现有 import。
+- 根 `package.json` 增 `"kdanmu-sdk": "workspace:*"`。
+- 回接：`lib/runtime/effect.ts`、`lib/types.ts` 改为从 `kdanmu-sdk` re-export，避免漂移与破坏现有 import。
 - 验收：`pnpm install` 成功；`pnpm build`（Next）与 `pnpm test` 不回归；SDK 可被 app 引用。
 
 ### M1 — 共享 Manifest 契约 + 版本常量
-- 抽 `RecipeSchema` 到共享位置（`types/` 或 `@kaleido/sdk`），`lib/ade/project.ts` 改引用。
+- 抽 `RecipeSchema` 到共享位置（`types/` 或 `kdanmu-sdk`），`lib/ade/project.ts` 改引用。
 - 新建 `types/manifest.ts`（§3）；`types/index.ts` 导出。
 - 扩展 `types/version.ts` 的 `CreateVersionSchema`（§4.1）。
 - 验收：schema 单测（合法/非法 Manifest、穿越 path、超限资源）通过。
@@ -175,17 +175,17 @@ export const CreateVersionSchema = z.object({
   Web 端上传旧作品仍工作（entrySource 作为单入口、无资源）。
 
 ### M3 — 运行时统一 ESM 加载（blob + import map）+ CSP + 资源注入【动共享代码，最关键】
-- 预置 vendor ESM：新增脚本 `scripts/build-runtime-vendor.ts`，用 esbuild 把 three、gsap、`@kaleido/sdk`
+- 预置 vendor ESM：新增脚本 `scripts/build-runtime-vendor.ts`，用 esbuild 把 three、gsap、`kdanmu-sdk`
   各自 bundle 成自包含 ESM，输出到 `public/effect-runtime/vendor/{three,gsap,kaleido-sdk}.mjs`；生成 import map。
   接入 `prebuild`/`predev`（package.json script）。
 - `app/effect-runtime/page.tsx`：
-  - 在文档 `<head>` 注入 import map（`three`/`gsap`/`@kaleido/sdk` → vendor URL）。
+  - 在文档 `<head>` 注入 import map（`three`/`gsap`/`kdanmu-sdk` → vendor URL）。
   - 用 `Blob` + `import(blobUrl)` 替换 `compileEffect(new Function)`；取 `mod.default` 作为 `EffectDefinition`。
-  - 收到 `load` 时把资源（base64 → Blob → objectURL）注册进 `@kaleido/sdk` 的资源表，供 `assetUrl` 解析；
+  - 收到 `load` 时把资源（base64 → Blob → objectURL）注册进 `kdanmu-sdk` 的资源表，供 `assetUrl` 解析；
     卸载时 `revokeObjectURL`。
   - 保留网络禁用、FPS、错误上报、pointer/danmaku。
 - `lib/runtime/effect.ts`：删除 `transformEffectSource`；`validateEffectSource` 重写为 ESM 校验——裸 import
-  白名单仅 `three`/`gsap`/`@kaleido/sdk`；禁任意 URL / 相对路径动态 import；禁 `fetch/XHR/WebSocket/
+  白名单仅 `three`/`gsap`/`kdanmu-sdk`；禁任意 URL / 相对路径动态 import；禁 `fetch/XHR/WebSocket/
   EventSource/Worker/postMessage/parent/cookie/storage`；体积上限用 `LIMITS`。运行时以 CSP 为主防线。
 - `components/player/effect-sandbox.tsx`：`load` payload 改为 `{ module: string, assets, recipe, playing }`。
 - `next.config.ts` CSP：`script-src` 加 `blob:`；`media-src` 加 `blob:`（音频资源）；`connect-src 'none'`
@@ -196,8 +196,8 @@ export const CreateVersionSchema = z.object({
 
 ### M4 — Vite 模板 + SDK 消费
 - 新建 `packages/template`（或 `cli/template/`）：§2.1 结构；`vite.config.ts` 用 `build.lib`（`formats:['es']`、
-  单入口 `src/index.ts`、`rollupOptions.external:['three','gsap','@kaleido/sdk']`）；`src/index.ts` 用
-  `DEFAULT_EFFECT_SOURCE` 等价内容改写为可 import `@kaleido/sdk` 的 TS。
+  单入口 `src/index.ts`、`rollupOptions.external:['three','gsap','kdanmu-sdk']`）；`src/index.ts` 用
+  `DEFAULT_EFFECT_SOURCE` 等价内容改写为可 import `kdanmu-sdk` 的 TS。
 - 资源引用约定：`import bgUrl from "../assets/bg.png"` 或 `assetUrl("bg.png")`；dev 与 build 一致解析并映射到
   运行时资源表。
 - 验收：模板 `vite build` 产出符合 §2.2 的 `entry.mjs`（外置依赖保留裸 import），可被运行时加载。
@@ -229,7 +229,7 @@ export const CreateVersionSchema = z.object({
 - **运行时以 CSP + iframe sandbox 为主防线**：prod iframe `sandbox="allow-scripts"`（无 same-origin）；CSP
   `default-src 'none'`、`script-src 'self' blob:`、`img-src 'self' data: blob:`、`media-src 'self' blob:`、
   `connect-src 'none'`、`object-src 'none'`、`base-uri 'none'`、`form-action 'none'`。
-- **静态校验为辅**：裸 import 仅允许 three/gsap/@kaleido/sdk；禁 URL/相对动态 import；禁网络/存储/Worker/
+- **静态校验为辅**：裸 import 仅允许 three/gsap/kdanmu-sdk；禁 URL/相对动态 import；禁网络/存储/Worker/
   父窗口/消息通道 API；体积/资源限额。对打包产物不再用"禁止一切 import"的正则。
 - 资源只通过宿主注入的 `blob:` URL 交付；Effect 不能 `fetch`。父页面不向 iframe 暴露登录态/API token/媒体元素。
 - 版本不可原地覆盖，只通过 `draft/staging/published` 指针切换与回滚。

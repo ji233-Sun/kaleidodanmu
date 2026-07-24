@@ -97,7 +97,7 @@ export function collectAndValidate(root: string): Artifact {
   const entryBytes = readFileSync(entryAbs)
   const entryText = entryBytes.toString('utf8')
 
-  // 运行时一致的安全校验（打包后的 ESM，裸依赖应只剩 three/gsap/@kaleido/sdk）
+  // 运行时一致的安全校验（打包后的 ESM，裸依赖应只剩 three/gsap/kdanmu-sdk）
   validateEffectSource(entryText)
   if (entryBytes.length > LIMITS.maxEntryBytes) {
     throw new Error(`入口 ${manifest.entry} 体积 ${entryBytes.length} 超过上限 ${LIMITS.maxEntryBytes}`)

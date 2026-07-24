@@ -5,12 +5,12 @@ import { LIMITS } from '@/types/manifest'
 const VENDOR = {
   three: '/kaleido-runtime/vendor/three.mjs',
   gsap: '/kaleido-runtime/vendor/gsap.mjs',
-  '@kaleido/sdk': '/kaleido-runtime/vendor/kaleido-sdk.mjs',
+  'kdanmu-sdk': '/kaleido-runtime/vendor/kaleido-sdk.mjs',
 }
 
 const okEntry = `import * as THREE from "three";
 import { gsap } from "gsap";
-import { defineEffect } from "@kaleido/sdk";
+import { defineEffect } from "kdanmu-sdk";
 export default defineEffect({ setup() { return { render() {}, resize() {}, dispose() {} }; } });`
 
 describe('validateEffectSource（ESM 安全校验）', () => {
@@ -52,13 +52,13 @@ describe('rewriteEffectImports（裸依赖 → vendor URL）', () => {
       'import * as THREE from "three";',
       "import{gsap}from'gsap';", // 无空格 + 单引号
       'import "three";', // 副作用 import
-      'import { defineEffect } from "@kaleido/sdk";',
+      'import { defineEffect } from "kdanmu-sdk";',
       'const s = "three";', // 普通字符串不应被改写
     ].join('\n')
     const out = rewriteEffectImports(input, VENDOR)
     expect(out).toContain(VENDOR.three)
     expect(out).toContain(VENDOR.gsap)
-    expect(out).toContain(VENDOR['@kaleido/sdk'])
+    expect(out).toContain(VENDOR['kdanmu-sdk'])
     // import 语句里的裸说明符已被替换
     expect(out).not.toMatch(/from\s*["']three["']/)
     expect(out).not.toMatch(/from\s*["']gsap["']/)

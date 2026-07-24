@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test'
 
-// 与运行时约定一致的最小 Effect：使用 three / gsap / @kaleido/sdk（裸 import），
+// 与运行时约定一致的最小 Effect：使用 three / gsap / kdanmu-sdk（裸 import），
 // 运行时会把它们重写为同源 vendor URL 后以 blob + 原生 import() 加载。
 const SAMPLE_EFFECT = `import * as THREE from "three";
 import { gsap } from "gsap";
-import { defineEffect } from "@kaleido/sdk";
+import { defineEffect } from "kdanmu-sdk";
 export default defineEffect({
   setup({ canvas }) {
     const scene = new THREE.Scene();

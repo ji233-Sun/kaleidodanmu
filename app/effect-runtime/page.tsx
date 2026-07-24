@@ -62,7 +62,7 @@ export default function EffectRuntimePage() {
     const vendor: Record<string, string> = {
       three: `${origin}/kaleido-runtime/vendor/three.mjs`,
       gsap: `${origin}/kaleido-runtime/vendor/gsap.mjs`,
-      "@kaleido/sdk": `${origin}/kaleido-runtime/vendor/kaleido-sdk.mjs`,
+      "kdanmu-sdk": `${origin}/kaleido-runtime/vendor/kaleido-sdk.mjs`,
     };
 
     let port: MessagePort | null = null;

@@ -1,7 +1,7 @@
 /**
- * 预构建运行时 vendor 依赖：把锁定版本的 three / gsap / @kaleido/sdk 各自打包成自包含 ESM，
+ * 预构建运行时 vendor 依赖：把锁定版本的 three / gsap / kdanmu-sdk 各自打包成自包含 ESM，
  * 输出到 public/kaleido-runtime/vendor/*.mjs。运行时（/effect-runtime）把 Effect 入口里的裸
- * import（"three" / "gsap" / "@kaleido/sdk"）重写为这些 vendor URL，从而用 blob + 原生 import()
+ * import（"three" / "gsap" / "kdanmu-sdk"）重写为这些 vendor URL，从而用 blob + 原生 import()
  * 加载真 ESM，无需 import map，也不需要把依赖打进每个 Effect 包。
  *
  * 由 predev / prebuild 自动执行（见 package.json）。
@@ -15,7 +15,7 @@ const OUT_DIR = 'public/kaleido-runtime/vendor'
 const ENTRIES: Record<string, string> = {
   three: "export * from 'three'",
   gsap: "export * from 'gsap'",
-  'kaleido-sdk': "export * from '@kaleido/sdk'",
+  'kaleido-sdk': "export * from 'kdanmu-sdk'",
 }
 
 async function main() {

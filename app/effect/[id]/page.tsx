@@ -142,7 +142,7 @@ export default function EffectPlayPage() {
       {runtimeError && <p className="mt-2 text-sm text-red-500">运行错误：{runtimeError}</p>}
       <p className="mt-3 text-xs leading-6 text-ink-3">
         本页把该作品「已发布」版本的产物（入口 ESM + 静态资源）注入隔离沙箱播放：沙箱禁用网络、仅允许
-        three / gsap / @kaleido/sdk，资源以 blob 注入。这正是 CLI `kdanmu upload/publish` 上传的包在平台上的运行效果。
+        three / gsap / kdanmu-sdk，资源以 blob 注入。这正是 CLI `kdanmu upload/publish` 上传的包在平台上的运行效果。
       </p>
     </main>
   );

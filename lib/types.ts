@@ -1,5 +1,5 @@
-/** 归一化弹幕事件与兼容配方现由 @kaleido/sdk 统一定义，这里 re-export 保持既有导入路径。 */
-import type { DanmakuEvent, Recipe } from "@kaleido/sdk";
+/** 归一化弹幕事件与兼容配方现由 kdanmu-sdk 统一定义，这里 re-export 保持既有导入路径。 */
+import type { DanmakuEvent, Recipe } from "kdanmu-sdk";
 export type { DanmakuEvent, Recipe };
 
 /** 本地 Canvas 作品草稿。 */

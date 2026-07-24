@@ -1,5 +1,5 @@
 {
-  "name": "@kaleido/sdk",
+  "name": "kdanmu-sdk",
   "version": "0.1.0",
   "description": "Canvas Effect SDK — defineEffect 生命周期、共享类型与资源解析（ADE / CLI / 运行时共用）",
   "type": "module",

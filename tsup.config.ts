@@ -27,7 +27,7 @@ export default defineConfig({
       scripts?: Record<string, string>
     }
     pkg.scripts = { dev: 'kdanmu dev', build: 'kdanmu build', validate: 'kdanmu validate', upload: 'kdanmu upload' }
-    pkg.dependencies = { ...(pkg.dependencies ?? {}), '@kaleido/sdk': '^0.1.0' }
+    pkg.dependencies = { ...(pkg.dependencies ?? {}), 'kdanmu-sdk': '^0.1.0' }
     pkg.devDependencies = {
       ...(pkg.devDependencies ?? {}),
       kdanmu: '^0.1.0',

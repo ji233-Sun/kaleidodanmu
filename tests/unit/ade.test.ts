@@ -103,7 +103,7 @@ describe("Effect Runtime source contract", () => {
     const vendor = {
       three: "/kaleido-runtime/vendor/three.mjs",
       gsap: "/kaleido-runtime/vendor/gsap.mjs",
-      "@kaleido/sdk": "/kaleido-runtime/vendor/kaleido-sdk.mjs",
+      "kdanmu-sdk": "/kaleido-runtime/vendor/kaleido-sdk.mjs",
     };
     const out = rewriteEffectImports(DEFAULT_EFFECT_SOURCE, vendor);
     expect(out).not.toContain('from "three"');

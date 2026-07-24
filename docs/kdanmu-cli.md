@@ -1,7 +1,7 @@
 # kdanmu CLI 使用文档
 
 `kdanmu` 是 Canvas Effect Package（弹幕效果包）的本地开发命令行工具：**脚手架 → 本地预览 →
-校验 → 打包 → 上传 → 发布**。效果用 `@kaleido/sdk` 的 `defineEffect` 定义，运行时在隔离沙箱中执行；
+校验 → 打包 → 上传 → 发布**。效果用 `kdanmu-sdk` 的 `defineEffect` 定义，运行时在隔离沙箱中执行；
 产物是「单入口 ESM + 静态资源」，与网页 ADE 生成的作品同构。
 
 ---
@@ -49,7 +49,7 @@ KDANMU_BASE_URL=http://localhost:3000 kdanmu upload
 ```bash
 kdanmu init my-effect     # 从内置模板创建工程
 cd my-effect
-npm install               # 安装 @kaleido/sdk、vite（模板已配好）
+npm install               # 安装 kdanmu-sdk、vite（模板已配好）
 npm run dev               # = kdanmu dev，本地预览（HMR + mock 弹幕）
 # 编辑 src/index.ts …
 kdanmu validate           # 校验产物
@@ -72,7 +72,7 @@ my-effect/
 ├── assets/            # 静态资源（png/jpg/webp/gif/mp3/ogg/json）
 ├── dev/preview.ts     # 本地预览壳（仅 dev 用，不进打包）
 ├── index.html         # 预览入口（仅 dev 用）
-├── vite.config.ts     # build.lib：外置 three/gsap/@kaleido/sdk
+├── vite.config.ts     # build.lib：外置 three/gsap/kdanmu-sdk
 ├── package.json
 └── .kdanmu.json       # 与云端 Effect 的关联（upload 后自动写入，见 §7）
 ```
@@ -97,11 +97,11 @@ my-effect/
 改动 `src/index.ts` 触发 HMR 即时刷新。长驻，`Ctrl+C` 退出。
 
 ### `kdanmu build [--cwd <dir>] [--json]`
-运行 `vite build` 产出 `dist/entry.mjs`（three/gsap/@kaleido/sdk 保留为外置裸 import），
+运行 `vite build` 产出 `dist/entry.mjs`（three/gsap/kdanmu-sdk 保留为外置裸 import），
 收集 `assets/` 资源并计算 sha256/大小，校验后把补全的最终 Manifest 写入 `dist/effect.json`。
 
 ### `kdanmu validate [--cwd <dir>] [--json]`
-若无产物会先构建，然后校验：**裸依赖白名单（仅 three/gsap/@kaleido/sdk）**、禁用 API（fetch/WebSocket/
+若无产物会先构建，然后校验：**裸依赖白名单（仅 three/gsap/kdanmu-sdk）**、禁用 API（fetch/WebSocket/
 Worker/存储/父窗口/动态 import 等）、体积限额、Manifest 结构。这套校验与运行时/服务端一致。
 
 ### `kdanmu upload [--channel <draft|staging|published>] [--base-url <url>] [--cwd <dir>] [--json]`
@@ -122,7 +122,7 @@ Worker/存储/父窗口/动态 import 等）、体积限额、Manifest 结构。
 ```jsonc
 {
   "schemaVersion": "2",              // 运行时结构版本（真 ESM）
-  "sdkVersion": "0.1.0",             // @kaleido/sdk 契约版本
+  "sdkVersion": "0.1.0",             // kdanmu-sdk 契约版本
   "version": "0.1.0",                // 语义化版本，同一 Effect 下不可覆盖
   "name": "示例弹幕效果",
   "entry": "entry.mjs",              // 构建产物入口文件名
@@ -137,12 +137,12 @@ Worker/存储/父窗口/动态 import 等）、体积限额、Manifest 结构。
 
 ## 6. SDK 契约与限制
 
-入口用 `@kaleido/sdk` 的 `defineEffect`，返回生命周期对象：
+入口用 `kdanmu-sdk` 的 `defineEffect`，返回生命周期对象：
 
 ```ts
 import * as THREE from "three";
 import { gsap } from "gsap";
-import { defineEffect, assetUrl } from "@kaleido/sdk";
+import { defineEffect, assetUrl } from "kdanmu-sdk";
 
 export default defineEffect({
   setup({ canvas, recipe, THREE, gsap }) {
@@ -159,7 +159,7 @@ export default defineEffect({
 });
 ```
 
-- **只能 import** `three` / `gsap` / `@kaleido/sdk`（源码里可用相对 import，打包后会内联；externals 仅这三者）。
+- **只能 import** `three` / `gsap` / `kdanmu-sdk`（源码里可用相对 import，打包后会内联；externals 仅这三者）。
 - **禁止** `fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / 动态 `import()` / `Worker` / `localStorage` 等存储
   / `document.cookie` / `window.parent|top|opener` / `postMessage`。
 - 资源放 `assets/`，代码里用 `assetUrl("相对路径")` 取运行时 URL（运行时以 blob 注入，禁止 fetch）。
@@ -188,7 +188,7 @@ export default defineEffect({
 
 ## 9. 把 CLI 发布到 npm（GitHub Action 自动发布）
 
-本仓库把可发布产物拆成两个 npm 包：`@kaleido/sdk`（运行时 SDK）与 `kdanmu`（CLI，内置模板）。
+本仓库把可发布产物拆成两个 npm 包：`kdanmu-sdk`（运行时 SDK）与 `kdanmu`（CLI，内置模板）。
 两者由 `.github/workflows/publish.yml` 在**创建 GitHub Release 时**自动发布。
 
 **一次性准备（你需要做）：**
@@ -196,8 +196,6 @@ export default defineEffect({
 2. 生成自动化令牌：npm 网站 → 头像 → **Access Tokens** → *Generate New Token* → 选 **Automation**（CI 用，跳过 2FA）→ 复制。
 3. 配置 GitHub Secret：仓库 **Settings → Secrets and variables → Actions → New repository secret**，
    名字 `NPM_TOKEN`，值粘贴上一步令牌。
-4. `@kaleido/sdk` 是带 scope 的包，首次发布需要你在 npm 拥有 `kaleido` 组织：
-   <https://www.npmjs.com/org/create>（公开包免费）。若该组织名不可用，可改用你自己的 scope（告知我改名即可）。
 
 **发布流程：**
 1. 确认要发的版本号（如 `0.2.0`）。
@@ -207,7 +205,7 @@ export default defineEffect({
 **本地演练（不真正发布）：**
 ```bash
 pnpm build:sdk && pnpm build:cli
-pnpm --filter @kaleido/sdk publish --dry-run --no-git-checks
+pnpm --filter kdanmu-sdk publish --dry-run --no-git-checks
 pnpm --filter kdanmu       publish --dry-run --no-git-checks
 # 或查看将打包进 npm 的文件：
 cd packages/cli && npm pack --dry-run

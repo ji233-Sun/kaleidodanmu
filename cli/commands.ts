@@ -92,7 +92,7 @@ export function initCmd(name: string, opts: BaseOpts): Promise<void> {
       '',
       '下一步：',
       `  cd ${name}`,
-      '  pnpm install     # 安装依赖（@kaleido/sdk、vite）',
+      '  pnpm install     # 安装依赖（kdanmu-sdk、vite）',
       '  kdanmu dev       # 本地预览',
       '  kdanmu build     # 打包',
       '  kdanmu upload    # 上传为草稿版本（需先 kdanmu login）',
