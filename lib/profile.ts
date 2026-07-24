@@ -42,16 +42,19 @@ export interface UserProfile {
   totalRemixes: number;
 }
 
-function recipeOf(value: Record<string, unknown>): Recipe {
-  return RecipeSchema.parse(value);
+function recipeOf(value: Record<string, unknown>): Recipe | null {
+  const result = RecipeSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
-function effectOf(item: SquareEffectDto): PublishedEffect {
+function effectOf(item: SquareEffectDto): PublishedEffect | null {
+  const recipe = recipeOf(item.recipe);
+  if (!recipe) return null;
   return {
     id: String(item.id),
     name: item.name,
     prompt: item.prompt,
-    recipe: recipeOf(item.recipe),
+    recipe,
     author: item.author.displayName,
     authorHandle: item.author.name,
     authorAvatarHue: item.author.avatarHue,
@@ -67,7 +70,7 @@ function effectOf(item: SquareEffectDto): PublishedEffect {
 
 export async function fetchSquare(): Promise<PublishedEffect[]> {
   const data = await apiFetch<SquareListResponse>("/api/square?limit=50");
-  return data.items.map(effectOf);
+  return data.items.map(effectOf).filter((e): e is PublishedEffect => e !== null);
 }
 
 export async function fetchUserProfile(name: string): Promise<UserProfile | null> {
@@ -80,7 +83,7 @@ export async function fetchUserProfile(name: string): Promise<UserProfile | null
       bio: data.user.bio,
       joinedAt: Date.parse(data.user.createdAt),
       followers: data.followers,
-      effects: data.effects.map(effectOf),
+      effects: data.effects.map(effectOf).filter((e): e is PublishedEffect => e !== null),
       totalLikes: data.totalLikes,
       totalCoins: data.totalCoins,
       totalFavorites: data.totalFavorites,
@@ -95,7 +98,9 @@ export async function fetchUserProfile(name: string): Promise<UserProfile | null
 export async function fetchSquareEffect(id: string): Promise<PublishedEffect | null> {
   try {
     const item = await apiFetch<EffectDetailDto>(`/api/square/${encodeURIComponent(id)}`);
-    return { ...effectOf(item), interacted: item.interacted };
+    const effect = effectOf(item);
+    if (!effect) return null;
+    return { ...effect, interacted: item.interacted };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;

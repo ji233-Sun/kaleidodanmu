@@ -28,13 +28,14 @@ export const UserRepository = {
   findByEmail: async (email: string) => (await repo()).findOneBy({ email }),
   findByName: async (name: string) => (await repo()).findOneBy({ name }),
 
-  /** 创建用户；name/displayName/avatarHue 由数据层自动生成（auth 层只传 email+password）。 */
-  create: async (data: Pick<User, 'email' | 'passwordHash'>) => {
-    const name = await ensureUniqueHandle()
+  /** 创建用户；未指定 name 时由数据层自动生成唯一 handle。 */
+  create: async (data: Pick<User, 'email' | 'passwordHash'> & { name?: string }) => {
+    const name = data.name ?? (await ensureUniqueHandle())
     const r = await repo()
     return r.save(
       r.create({
-        ...data,
+        email: data.email,
+        passwordHash: data.passwordHash,
         role: 'creator',
         name,
         displayName: name,

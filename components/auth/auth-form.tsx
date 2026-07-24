@@ -10,6 +10,12 @@ import { Alert, Button, Input, Spinner } from "@/components/ui";
 
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 128;
+const NAME_MIN = 3;
+const NAME_MAX = 20;
+
+/** 归一化为合法 handle：小写字母/数字/连字符，最长 20 位 */
+const sanitizeHandle = (raw: string): string =>
+  raw.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, NAME_MAX);
 
 export interface AuthFormProps {
   mode: "login" | "register";
@@ -22,11 +28,21 @@ export function AuthForm({ mode, next }: AuthFormProps) {
   const router = useRouter();
   const { refresh } = useSession();
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const isLogin = mode === "login";
+
+  // 注册时，未手动编辑用户名则根据邮箱本地部分自动预填
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (!isLogin && !nameTouched) {
+      setName(sanitizeHandle(value.split("@")[0] ?? ""));
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -40,6 +56,11 @@ export function AuthForm({ mode, next }: AuthFormProps) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError("邮箱格式不正确");
+      return;
+    }
+    const trimmedName = name.trim();
+    if (!isLogin && !/^[a-z0-9-]{3,20}$/.test(trimmedName)) {
+      setError(`用户名需为 ${NAME_MIN}~${NAME_MAX} 位小写字母、数字或连字符`);
       return;
     }
     if (password.length < PASSWORD_MIN) {
@@ -56,13 +77,19 @@ export function AuthForm({ mode, next }: AuthFormProps) {
     try {
       await apiFetch<{ user: AuthUserDto }>(`/api/auth/${mode}`, {
         method: "POST",
-        json: { email: trimmed, password },
+        json: isLogin
+          ? { email: trimmed, password }
+          : { email: trimmed, password, name: trimmedName },
       });
       await refresh();
       router.push(next ?? "/mine");
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        const friendly: Record<string, string> = {
+          email_taken: "该邮箱已被注册",
+          name_taken: "该用户名已被占用，请换一个",
+        };
+        setError(friendly[err.code] ?? err.message);
       } else {
         setError("网络异常，请稍后重试");
       }
@@ -81,10 +108,30 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           autoComplete="email"
           placeholder="you@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => handleEmailChange(e.target.value)}
           disabled={submitting}
         />
       </label>
+
+      {!isLogin && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-ink">用户名</span>
+          <Input
+            type="text"
+            autoComplete="username"
+            placeholder="your-name"
+            value={name}
+            onChange={(e) => {
+              setNameTouched(true);
+              setName(sanitizeHandle(e.target.value));
+            }}
+            disabled={submitting}
+          />
+          <span className="text-xs text-ink-3">
+            {NAME_MIN}~{NAME_MAX} 位小写字母、数字或连字符，将作为你的主页地址
+          </span>
+        </label>
+      )}
 
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-ink">密码</span>

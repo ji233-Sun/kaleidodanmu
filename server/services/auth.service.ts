@@ -19,13 +19,17 @@ export function toAuthUser(u: User): AuthUserDto {
 }
 
 export const AuthService = {
-  async register(email: string, password: string) {
+  async register(email: string, password: string, name?: string) {
     if (await UserRepository.findByEmail(email)) {
       throw new HttpError(409, 'email_taken', 'Email already registered')
+    }
+    if (name && (await UserRepository.findByName(name))) {
+      throw new HttpError(409, 'name_taken', 'Username already taken')
     }
     const user = await UserRepository.create({
       email,
       passwordHash: hashPassword(password),
+      name,
     })
     return { user: toAuthUser(user), token: signSessionToken(user.id) }
   },

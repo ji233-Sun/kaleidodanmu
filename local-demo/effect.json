@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2",
+  "sdkVersion": "0.1.0",
+  "version": "0.1.0",
+  "name": "local-demo",
+  "entry": "entry.mjs",
+  "recipe": {
+    "symmetry": 6,
+    "rotationSpeed": 0,
+    "motion": "flow",
+    "palette": [
+      "#081229",
+      "#8dd8ff"
+    ],
+    "shardScale": 1,
+    "trail": 0.2,
+    "density": 1
+  },
+  "capabilities": [
+    "canvas",
+    "danmaku",
+    "three",
+    "gsap"
+  ],
+  "assets": []
+}
