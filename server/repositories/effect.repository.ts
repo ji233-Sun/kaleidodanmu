@@ -43,6 +43,18 @@ export const EffectRepository = {
       .orderBy('e.createdAt', 'DESC')
       .getMany(),
 
+  /** 按 id 批量取已发布且公开的作品（「我的点赞/收藏」列表用）。 */
+  findPublicByIds: async (ids: number[]) => {
+    if (ids.length === 0) return []
+    return (await repo())
+      .createQueryBuilder('e')
+      .where('e.id IN (:...ids)', { ids })
+      .andWhere('e.visibility = :v', { v: 'public' })
+      .andWhere('e.publishedVersionId IS NOT NULL')
+      .orderBy('e.createdAt', 'DESC')
+      .getMany()
+  },
+
   findDerivatives: async (parentId: number, limit: number) =>
     (await repo())
       .createQueryBuilder('e')

@@ -1,8 +1,12 @@
 import type {
   DerivativeListResponse,
   EffectDetailDto,
+  FollowListResponse,
+  FollowResponse,
   InteractionKind,
   InteractionResponse,
+  PublicUserDto,
+  ReactionListResponse,
   SquareEffectDto,
   SquareListResponse,
   UserProfileDto,
@@ -35,6 +39,8 @@ export interface UserProfile {
   bio: string;
   joinedAt: number;
   followers: number;
+  following: number;
+  isFollowing: boolean;
   effects: PublishedEffect[];
   totalLikes: number;
   totalCoins: number;
@@ -83,6 +89,8 @@ export async function fetchUserProfile(name: string): Promise<UserProfile | null
       bio: data.user.bio,
       joinedAt: Date.parse(data.user.createdAt),
       followers: data.followers,
+      following: data.following,
+      isFollowing: data.isFollowing,
       effects: data.effects.map(effectOf).filter((e): e is PublishedEffect => e !== null),
       totalLikes: data.totalLikes,
       totalCoins: data.totalCoins,
@@ -131,4 +139,26 @@ export async function postInteraction(
     method: "POST",
     json: { kind, on },
   });
+}
+
+/** 关注 / 取关某用户。 */
+export async function postFollow(name: string, on: boolean): Promise<FollowResponse> {
+  return apiFetch(`/api/users/${encodeURIComponent(name)}/follow`, {
+    method: "POST",
+    json: { on },
+  });
+}
+
+/** 我的点赞 / 收藏 / 投币作品列表。 */
+export async function fetchMyReactions(
+  kind: InteractionKind,
+): Promise<PublishedEffect[]> {
+  const data = await apiFetch<ReactionListResponse>(`/api/users/me/reactions?kind=${kind}`);
+  return data.items.map(effectOf);
+}
+
+/** 我关注的用户列表。 */
+export async function fetchMyFollowing(): Promise<PublicUserDto[]> {
+  const data = await apiFetch<FollowListResponse>(`/api/users/me/following`);
+  return data.items;
 }

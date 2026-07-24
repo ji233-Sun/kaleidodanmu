@@ -13,7 +13,10 @@ import { Draft } from './entities/draft.entity'
 import { ApiToken } from './entities/apiToken.entity'
 import { OAuthCode } from './entities/oauthCode.entity'
 import { AppSetting } from './entities/appSetting.entity'
-import { EffectInteraction } from './entities/effectInteraction.entity'
+import { EffectLike } from './entities/effectLike.entity'
+import { EffectFavorite } from './entities/effectFavorite.entity'
+import { EffectCoin } from './entities/effectCoin.entity'
+import { UserFollow } from './entities/userFollow.entity'
 import { AdeSession } from './entities/adeSession.entity'
 import { LlmConfig } from './entities/llmConfig.entity'
 const dbPath = env.dbPath
@@ -87,7 +90,10 @@ function createDataSource(): DataSource {
       Session,
       Effect,
       EffectVersion,
-      EffectInteraction,
+      EffectLike,
+      EffectFavorite,
+      EffectCoin,
+      UserFollow,
       Draft,
       ApiToken,
       OAuthCode,

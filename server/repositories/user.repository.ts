@@ -48,4 +48,14 @@ export const UserRepository = {
     id: number,
     data: Partial<Pick<User, 'displayName' | 'avatarHue' | 'bio'>>,
   ) => (await repo()).update(id, data),
+
+  /** 粉丝 / 关注计数自增自减（关注关系变更时维护）。 */
+  bumpCount: async (
+    id: number,
+    column: 'followersCount' | 'followingCount',
+    delta: 1 | -1,
+  ) =>
+    delta > 0
+      ? (await repo()).increment({ id }, column, delta)
+      : (await repo()).decrement({ id }, column, -delta),
 }

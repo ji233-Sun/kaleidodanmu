@@ -13,6 +13,7 @@ import {
   upsertEffect,
 } from "@/lib/store";
 import { EffectThumb } from "@/components/effect-thumb";
+import { MeSubnav } from "@/components/me/me-subnav";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
@@ -119,6 +120,7 @@ export default function MinePage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
+      <MeSubnav active="/mine" />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">我的作品</h1>

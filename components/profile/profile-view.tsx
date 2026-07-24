@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   fetchDerivatives,
   fetchUserProfile,
+  postFollow,
   postInteraction,
   type DerivativeWork,
   type PublishedEffect,
@@ -70,10 +71,21 @@ export function ProfileView({ name }: { name: string }) {
     items: DerivativeWork[];
   } | null>(null);
 
+  const [following, setFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followBusy, setFollowBusy] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     fetchUserProfile(name)
-      .then((p) => !cancelled && setProfileResult({ name, profile: p }))
+      .then((p) => {
+        if (cancelled) return;
+        setProfileResult({ name, profile: p });
+        if (p) {
+          setFollowing(p.isFollowing);
+          setFollowerCount(p.followers);
+        }
+      })
       .catch(() => !cancelled && setProfileResult({ name, profile: null }));
     return () => {
       cancelled = true;
@@ -90,6 +102,23 @@ export function ProfileView({ name }: { name: string }) {
       cancelled = true;
     };
   }, [derivativesOf]);
+
+  const toggleFollow = useCallback(() => {
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(`/u/${name}`)}`);
+      return;
+    }
+    const next = !following;
+    setFollowing(next);
+    setFollowerCount((c) => c + (next ? 1 : -1));
+    setFollowBusy(true);
+    postFollow(name, next)
+      .catch(() => {
+        setFollowing(!next);
+        setFollowerCount((c) => c + (next ? -1 : 1));
+      })
+      .finally(() => setFollowBusy(false));
+  }, [following, name, router, user]);
 
   const loading = profileResult?.name !== name;
   const profile = loading ? null : profileResult.profile;
@@ -150,7 +179,8 @@ export function ProfileView({ name }: { name: string }) {
     { label: "获币", value: profile.totalCoins },
     { label: "被收藏", value: profile.totalFavorites },
     { label: "二创", value: profile.totalRemixes },
-    { label: "粉丝", value: profile.followers },
+    { label: "粉丝", value: followerCount },
+    { label: "关注", value: profile.following },
   ];
 
   return (
@@ -168,6 +198,20 @@ export function ProfileView({ name }: { name: string }) {
           <p className="mt-1 text-sm text-ink-2">{profile.bio}</p>
           <p className="mt-1 text-xs text-ink-3">{fmtDate(profile.joinedAt)} 加入</p>
         </div>
+        {user && (
+          <button
+            onClick={toggleFollow}
+            disabled={followBusy}
+            className={cn(
+              "flex-none rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60",
+              following
+                ? "border border-line text-ink-2 hover:border-bili-pink hover:text-bili-pink"
+                : "bg-bili-pink text-white hover:bg-bili-pink-hover",
+            )}
+          >
+            {following ? "已关注" : "+ 关注"}
+          </button>
+        )}
         <div className="flex flex-none flex-wrap gap-x-6 gap-y-2">
           {stats.map((s) => (
             <div key={s.label} className="text-center">

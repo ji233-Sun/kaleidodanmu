@@ -1,6 +1,7 @@
 import { HttpError } from '@/server/utils/errors'
 import { UserRepository } from '@/server/repositories/user.repository'
 import { EffectRepository } from '@/server/repositories/effect.repository'
+import { UserFollowRepository } from '@/server/repositories/userFollow.repository'
 import { toPublicUser, toSquareEffect, sum } from './community.mapper'
 import type { UserProfileDto, UpdateProfileRequest, PublicUserDto } from '@/types'
 
@@ -11,12 +12,13 @@ export const UserService = {
     return toPublicUser(user)
   },
 
-  /** GET /api/users/:name —— 个人主页：资料 + 已发布作品 + 聚合统计。 */
-  async getProfile(name: string): Promise<UserProfileDto | null> {
+  /** GET /api/users/:name —— 个人主页：资料 + 已发布作品 + 聚合统计 + 关注关系。 */
+  async getProfile(name: string, viewerId: number | null): Promise<UserProfileDto | null> {
     const user = await UserRepository.findByName(name)
     if (!user) return null
     const effects = await EffectRepository.findPublishedByOwner(user.id)
     const items = effects.map((e) => toSquareEffect(e, toPublicUser(user)))
+    const isFollowing = viewerId ? await UserFollowRepository.exists(viewerId, user.id) : false
     return {
       user: toPublicUser(user),
       effects: items,
@@ -24,7 +26,9 @@ export const UserService = {
       totalCoins: sum(items, 'coins'),
       totalFavorites: sum(items, 'favorites'),
       totalRemixes: sum(items, 'remixes'),
-      followers: 0,
+      followers: user.followersCount,
+      following: user.followingCount,
+      isFollowing,
     }
   },
 

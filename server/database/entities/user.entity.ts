@@ -32,6 +32,14 @@ export class User {
   @Column({ type: 'text', default: 'creator' })
   role!: string
 
+  /** 粉丝数（被多少用户关注），冗余计数。 */
+  @Column({ name: 'followers_count', type: 'integer', default: 0 })
+  followersCount!: number
+
+  /** 关注数（关注了多少用户），冗余计数。 */
+  @Column({ name: 'following_count', type: 'integer', default: 0 })
+  followingCount!: number
+
   @Column({
     name: 'created_at',
     type: 'datetime',

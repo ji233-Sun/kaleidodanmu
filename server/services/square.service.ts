@@ -1,21 +1,14 @@
 import { EffectRepository } from '@/server/repositories/effect.repository'
-import { UserRepository } from '@/server/repositories/user.repository'
-import { InteractionRepository } from '@/server/repositories/effectInteraction.repository'
-import { toPublicUser, toSquareEffect } from './community.mapper'
+import { toSquareEffect, loadAuthorsMap } from './community.mapper'
+import { InteractionService } from './interaction.service'
 import type { SquareListResponse, SquareEffectDto, EffectDetailDto } from '@/types'
 import type { Effect } from '@/server/database/entities/effect.entity'
-import type { User } from '@/server/database/entities/user.entity'
 
 async function withAuthors(effects: Effect[]): Promise<SquareEffectDto[]> {
-  const ownerIds = [...new Set(effects.map((e) => e.ownerId))]
-  const users = await Promise.all(ownerIds.map((id) => UserRepository.findById(id)))
-  const byId = new Map<number, User>()
-  users.forEach((u) => {
-    if (u) byId.set(u.id, u)
-  })
+  const authors = await loadAuthorsMap(effects)
   return effects
-    .filter((e) => byId.has(e.ownerId))
-    .map((e) => toSquareEffect(e, toPublicUser(byId.get(e.ownerId)!)))
+    .filter((e) => authors.has(e.ownerId))
+    .map((e) => toSquareEffect(e, authors.get(e.ownerId)!))
 }
 
 export const SquareService = {
@@ -31,19 +24,11 @@ export const SquareService = {
   async detail(id: number, viewerId: number | null): Promise<EffectDetailDto | null> {
     const effect = await EffectRepository.findSquareById(id)
     if (!effect) return null
-    const author = await UserRepository.findById(effect.ownerId)
+    const authors = await loadAuthorsMap([effect])
+    const author = authors.get(effect.ownerId)
     if (!author) return null
-    const card = toSquareEffect(effect, toPublicUser(author))
-    let interacted: EffectDetailDto['interacted'] = null
-    if (viewerId) {
-      const rows = await InteractionRepository.findUserState(viewerId, id)
-      const kinds = new Set(rows.map((r) => r.kind))
-      interacted = {
-        like: kinds.has('like'),
-        coin: kinds.has('coin'),
-        favorite: kinds.has('favorite'),
-      }
-    }
+    const card = toSquareEffect(effect, author)
+    const interacted = await InteractionService.userState(viewerId, id)
     return { ...card, forkedFrom: effect.forkedFrom, interacted }
   },
 }

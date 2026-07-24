@@ -59,6 +59,8 @@ export interface UserProfileDto {
   totalFavorites: number
   totalRemixes: number
   followers: number
+  following: number
+  isFollowing: boolean
 }
 
 export type InteractionKind = 'like' | 'coin' | 'favorite'
@@ -81,3 +83,21 @@ export const UpdateProfileSchema = z.object({
   bio: z.string().max(280).optional(),
 })
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileSchema>
+
+export const FollowSchema = z.object({ on: z.boolean() })
+export type FollowRequest = z.infer<typeof FollowSchema>
+
+export interface FollowResponse {
+  on: boolean
+  followersCount: number
+}
+
+/** 「我的点赞 / 收藏」作品列表。 */
+export interface ReactionListResponse {
+  items: SquareEffectDto[]
+}
+
+/** 粉丝 / 关注的用户列表。 */
+export interface FollowListResponse {
+  items: PublicUserDto[]
+}

@@ -1,3 +1,4 @@
+import { UserRepository } from '@/server/repositories/user.repository'
 import type { PublicUserDto, SquareEffectDto, DerivativeDto } from '@/types'
 import type { User } from '@/server/database/entities/user.entity'
 import type { Effect } from '@/server/database/entities/effect.entity'
@@ -53,4 +54,15 @@ export function toDerivative(e: Effect, author: PublicUserDto): DerivativeDto {
 
 export function sum<T>(arr: T[], key: keyof T): number {
   return arr.reduce((s, x) => s + (Number(x[key]) || 0), 0)
+}
+
+/** 批量加载作品的作者 → Map<ownerId, PublicUserDto>（广场 / 列表通用）。 */
+export async function loadAuthorsMap(effects: Effect[]): Promise<Map<number, PublicUserDto>> {
+  const ownerIds = [...new Set(effects.map((e) => e.ownerId))]
+  const users = await Promise.all(ownerIds.map((id) => UserRepository.findById(id)))
+  const map = new Map<number, PublicUserDto>()
+  users.forEach((u) => {
+    if (u) map.set(u.id, toPublicUser(u))
+  })
+  return map
 }
