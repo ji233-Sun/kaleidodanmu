@@ -20,14 +20,16 @@ export function KaleidoPlayer({
   recipe,
   effectSource = DEFAULT_EFFECT_SOURCE,
   seed = 42,
-  title = "【演示】万花筒弹幕 · 概念视频",
+  title = "【演示】自由 Canvas · 概念视频",
   autoPlay = true,
+  onEffectError,
 }: {
   recipe: Recipe;
   effectSource?: string;
   seed?: number;
   title?: string;
   autoPlay?: boolean;
+  onEffectError?: (message: string | null) => void;
 }) {
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -52,6 +54,11 @@ export function KaleidoPlayer({
   const [source, setSource] = useState<"vod" | "live">("vod");
   const [fps, setFps] = useState(0);
   const [effectError, setEffectError] = useState<string | null>(null);
+
+  // 运行错误同步给外层（Studio 用它做显著提示与「让 Agent 修复」入口）
+  useEffect(() => {
+    onEffectError?.(effectError);
+  }, [effectError, onEffectError]);
 
   const vodEvents = useMemo(() => generateVodDanmaku(seed, 60_000, 240), [seed]);
   const liveEvents = useMemo(() => generateLiveDanmaku(seed), [seed]);
@@ -287,7 +294,7 @@ export function KaleidoPlayer({
       />
 
       {/* 隔离的 Canvas / WebGL Effect 层 */}
-      <div className="pointer-events-none absolute inset-0 z-[5]">
+      <div className="absolute inset-0 z-[5]">
         <EffectSandbox
           ref={effectRef}
           source={effectSource}

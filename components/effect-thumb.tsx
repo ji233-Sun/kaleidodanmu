@@ -11,7 +11,7 @@ const THUMB_TEXTS = [
   "再来亿遍", "泪目", "绝绝子", "爷青回", "全体起立", "上头了",
 ];
 
-/** 卡片缩略图：跑一个缩小版万花筒实时预览（接入后端后可换成快照图） */
+/** 卡片缩略图：运行缩小版实时预览（接入后端后可换成快照图）。 */
 export function EffectThumb({ recipe, seedText }: { recipe: Recipe; seedText: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Recipe } from '@/lib/types'
 import { DEFAULT_EFFECT_SOURCE, validateEffectSource } from '@/lib/runtime/effect'
+import { ADE_GUIDE, ADE_GUIDE_FILE } from './guide'
 import type { AdeToolCall } from './protocol'
 
 const HexColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}){1,2}$/)
@@ -90,19 +91,21 @@ export class BrowserEffectProject {
     }
   }
 
-  private filePath(args: Record<string, unknown>): 'effect.json' | 'index.ts' {
-    if (args.path === 'effect.json' || args.path === 'index.ts') return args.path
-    throw new Error('仅允许访问 effect.json 或 index.ts')
+  private filePath(args: Record<string, unknown>): 'effect.json' | 'index.ts' | typeof ADE_GUIDE_FILE {
+    if (args.path === 'effect.json' || args.path === 'index.ts' || args.path === ADE_GUIDE_FILE) return args.path
+    throw new Error('仅允许访问 effect.json、index.ts 或 ' + ADE_GUIDE_FILE)
   }
 
   private readFile(args: Record<string, unknown>): string {
     const path = this.filePath(args)
+    if (path === ADE_GUIDE_FILE) return ADE_GUIDE
     const content = this.files.get(path)
     return content === undefined ? path + ' 不存在' : content
   }
 
   private writeFile(args: Record<string, unknown>): string {
     const path = this.filePath(args)
+    if (path === ADE_GUIDE_FILE) throw new Error(ADE_GUIDE_FILE + ' 是只读文档，不能修改')
     if (typeof args.content !== 'string' || args.content.length > 20_000) {
       throw new Error('文件内容必须是长度不超过 20000 的字符串')
     }

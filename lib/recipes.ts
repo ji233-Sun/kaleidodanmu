@@ -110,7 +110,7 @@ export function recipeFromPrompt(prompt: string): { name: string; recipe: Recipe
       return { name: rule.name, recipe };
     }
   }
-  return { name: "幻彩万花筒", recipe };
+  return { name: "幻彩流光", recipe };
 }
 
 /** 迭代指令：在既有配方上增量修改（mock） */

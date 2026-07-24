@@ -17,7 +17,7 @@ export function buildCreationScript(
   return [
     {
       type: "say",
-      text: `收到，我来为你创建这个万花筒效果。\n\n先理解一下需求：「${prompt}」——我打算用「${name}」方案来实现：${recipe.symmetry} 重对称、${motionLabel(recipe.motion)} 运动、${recipe.palette.length} 色策略。`,
+      text: `收到，我来为你创建这个 Canvas 效果。\n\n先理解一下需求：「${prompt}」——我会用「${name}」方案实现，并根据你的描述决定画面、运动与交互。`,
     },
     {
       type: "tool",
@@ -49,7 +49,7 @@ export function buildCreationScript(
     },
     {
       type: "say",
-      text: "效果已经生成并在右侧预览了，视频播放时可以看到弹幕经过万花筒渲染的样子。\n\n不满意的话直接告诉我怎么改，比如「碎片再多一点」「换成粉色系」「旋转再快一些」。",
+      text: "效果已经生成并在右侧预览了。\n\n直接告诉我你想怎样调整画面、动画或交互。",
     },
     { type: "apply", name, recipe },
   ];
@@ -88,8 +88,4 @@ export function buildRefineScript(
     },
     { type: "apply", recipe, changes },
   ];
-}
-
-function motionLabel(m: Recipe["motion"]): string {
-  return { spiral: "螺旋扩散", burst: "迸发碎裂", orbit: "轨道环绕", flow: "流光穿行" }[m];
 }

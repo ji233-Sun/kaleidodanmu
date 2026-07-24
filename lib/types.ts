@@ -12,7 +12,7 @@ export interface DanmakuEvent {
   seed: number;
 }
 
-/** 万花筒配方：声明式动效参数，渲染引擎据此绘制 */
+/** 兼容配方：为旧作品保留的声明式基础参数，不限制 Canvas 的实际表现。 */
 export interface Recipe {
   /** 对称切片数 3-12 */
   symmetry: number;
@@ -30,7 +30,7 @@ export interface Recipe {
   density: number;
 }
 
-/** 我的万花筒（本地草稿） */
+/** 本地 Canvas 作品草稿。 */
 export interface KaleidoEffect {
   id: string;
   name: string;

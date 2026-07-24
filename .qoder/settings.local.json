@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/ji233/Documents/0MyProjects/kaleidodanmu -type d -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.next/*' | head -60)"
+    ]
+  }
+}

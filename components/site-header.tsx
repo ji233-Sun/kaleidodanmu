@@ -7,8 +7,8 @@ import { useSession } from "@/lib/session";
 
 const LINKS = [
   { href: "/", label: "创作" },
-  { href: "/mine", label: "我的万花筒" },
-  { href: "/square", label: "万花筒广场" },
+  { href: "/mine", label: "我的作品" },
+  { href: "/square", label: "创作广场" },
 ];
 
 export function SiteHeader() {
@@ -29,8 +29,8 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:h-14 sm:flex-nowrap sm:gap-8 sm:px-6 sm:py-0">
         <Link href="/" className="flex min-w-0 items-center gap-2 whitespace-nowrap">
           <span className="h-5 w-5 rotate-45 rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink shadow-[0_0_14px_rgba(124,92,252,.5)]" />
-          <span className="text-lg font-bold tracking-tight text-ink">万花筒弹幕</span>
-          <span className="hidden text-xs font-medium text-ink-3 sm:inline">KALEIDO</span>
+          <span className="text-lg font-bold tracking-tight text-ink">自由 Canvas</span>
+          <span className="hidden text-xs font-medium text-ink-3 sm:inline">CANVAS</span>
         </Link>
         <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto sm:justify-start">
           {LINKS.map((l) => {

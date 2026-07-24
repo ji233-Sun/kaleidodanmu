@@ -46,7 +46,7 @@ export default function MinePage() {
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">我的万花筒</h1>
+          <h1 className="text-2xl font-bold text-ink">我的作品</h1>
           <p className="mt-1 text-sm text-ink-2">
             管理你创建的所有弹幕配方，点击卡片继续对话迭代。
           </p>
@@ -55,14 +55,14 @@ export default function MinePage() {
           href="/"
           className="rounded-lg bg-bili-pink px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-bili-pink-hover"
         >
-          + 新建万花筒
+          + 新建作品
         </Link>
       </div>
 
       {!hydrated ? null : effects.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-line bg-card py-20">
           <span className="h-8 w-8 rotate-45 rounded-lg bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink opacity-60" />
-          <p className="text-sm text-ink-2">还没有作品，用一句话创建你的第一个万花筒吧</p>
+          <p className="text-sm text-ink-2">还没有作品，用一句话创建你的第一个 Canvas 作品吧</p>
           <Link href="/" className="text-sm font-medium text-bili-pink hover:underline">
             去创建 →
           </Link>

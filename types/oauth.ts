@@ -6,9 +6,9 @@ export const CLI_CLIENT_ID = 'kaleido-cli'
 /** 授权 scope 目录：授权页展示文案与服务端白名单校验共用，避免漂移。 */
 export const SCOPE_CATALOG: Record<string, string> = {
   'profile:read': '读取你的基本资料（昵称、头像）',
-  'effects:read': '查看你的万花筒作品',
-  'effects:write': '创建、修改和删除你的万花筒作品',
-  'square:publish': '将作品发布到万花筒广场',
+  'effects:read': '查看你的 Canvas 作品',
+  'effects:write': '创建、修改和删除你的 Canvas 作品',
+  'square:publish': '将作品发布到创作广场',
 }
 
 /** CLI login 默认申请全部 scope。 */

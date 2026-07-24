@@ -13,6 +13,19 @@ export interface EffectFrame {
   delta: number;
 }
 
+export interface EffectPointerEvent {
+  type: "down" | "move" | "up" | "cancel";
+  /** Canvas CSS 像素坐标。 */
+  x: number;
+  y: number;
+  /** 归一化坐标，左上为 (0, 0)，右下为 (1, 1)。 */
+  nx: number;
+  ny: number;
+  pressure: number;
+  pointerId: number;
+  pointerType: string;
+}
+
 export interface EffectSetupContext {
   canvas: HTMLCanvasElement;
   recipe: Recipe;
@@ -21,7 +34,8 @@ export interface EffectSetupContext {
 }
 
 export interface EffectInstance {
-  onDanmaku(event: DanmakuEvent): void;
+  onDanmaku?(event: DanmakuEvent): void;
+  onPointer?(event: EffectPointerEvent): void;
   render(frame: EffectFrame): void;
   resize(viewport: EffectViewport): void;
   setPlaying?(playing: boolean): void;
@@ -83,8 +97,8 @@ export function validateEffectSource(source: string): void {
   if (!/export\s+default\s+defineEffect\s*\(/.test(body)) {
     throw new Error("index.ts 必须默认导出 defineEffect(...) ");
   }
-  if (!/\bsetup\s*\(/.test(body) || !/\bonDanmaku\s*\(/.test(body)) {
-    throw new Error("Effect 必须实现 setup() 和 onDanmaku() 生命周期");
+  if (!/\bsetup\s*\(/.test(body)) {
+    throw new Error("Effect 必须实现 setup() 生命周期");
   }
   if (/\bexport\s+(?!default\s+defineEffect)/.test(body)) {
     throw new Error("index.ts 只允许一个默认导出");

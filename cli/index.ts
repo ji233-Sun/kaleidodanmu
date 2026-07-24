@@ -11,7 +11,7 @@ const program = createCommand()
 
 program
   .name('kdanmu')
-  .description('kdanmu CLI — 本地开发与发布万花筒 Effect Package')
+  .description('kdanmu CLI — 本地开发与发布 Canvas Effect Package')
   .version(pkg.version)
 
 program

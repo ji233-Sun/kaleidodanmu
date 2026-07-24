@@ -17,7 +17,7 @@ export default function SquarePage() {
   const [usedIds, setUsedIds] = useState<Set<string>>(new Set());
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  /** 一键取用：复制配方到我的万花筒 */
+  /** 一键取用：复制作品到我的作品 */
   const use = useCallback((id: string) => {
     const item = SQUARE_ITEMS.find((i) => i.id === id);
     if (!item) return;
@@ -46,7 +46,7 @@ export default function SquarePage() {
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">万花筒广场</h1>
+        <h1 className="text-2xl font-bold text-ink">创作广场</h1>
         <p className="mt-1 text-sm text-ink-2">
           大家分享的弹幕玩法。一键取用，或在原作基础上二次创作。
         </p>
@@ -130,7 +130,7 @@ export default function SquarePage() {
                   </button>
                   {used && (
                     <Link href="/mine" className="ml-auto text-[11px] text-bili-blue hover:underline">
-                      去我的万花筒 →
+                      去我的作品 →
                     </Link>
                   )}
                 </div>

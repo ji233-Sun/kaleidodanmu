@@ -76,6 +76,19 @@ export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>
       frame.postMessage({ type: "kaleido:connect" }, "*", [channel.port2]);
     };
 
+    // 运行时就绪后会广播 boot；与 onLoad 双通道握手，覆盖 dev 下 iframe 先
+    // 完成加载、React 尚未挂载导致 connect 消息丢失的竞态。
+    useEffect(() => {
+      const onBoot = (event: MessageEvent) => {
+        if (event.source !== iframeRef.current?.contentWindow) return;
+        if (event.data?.type !== "kaleido:boot" || readyRef.current) return;
+        connect();
+      };
+      window.addEventListener("message", onBoot);
+      return () => window.removeEventListener("message", onBoot);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
       <iframe
         ref={iframeRef}
@@ -89,7 +102,7 @@ export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>
         }
         tabIndex={-1}
         onLoad={connect}
-        className="pointer-events-none absolute inset-0 h-full w-full border-0 bg-transparent"
+        className="absolute inset-0 h-full w-full touch-none border-0 bg-transparent"
       />
     );
   },

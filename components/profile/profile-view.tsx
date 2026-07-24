@@ -166,9 +166,9 @@ export function ProfileView({ name }: { name: string }) {
         </div>
       </section>
 
-      {/* 发布的万花筒 */}
+      {/* 发布的作品 */}
       <h2 className="mb-4 text-lg font-semibold text-ink">
-        发布的万花筒 <span className="text-sm font-normal text-ink-3">({profile.effects.length})</span>
+        发布的作品 <span className="text-sm font-normal text-ink-3">({profile.effects.length})</span>
       </h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {profile.effects.map((fx) => {

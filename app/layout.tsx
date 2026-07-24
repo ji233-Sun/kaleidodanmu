@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "万花筒弹幕 Kaleido",
-  description: "用一句话创造弹幕万花筒 —— AI 原生的弹幕表现层",
+  title: "自由 Canvas",
+  description: "用一句话创造画面、动画与交互 —— AI 原生的自由 Canvas",
 };
 
 export default function RootLayout({

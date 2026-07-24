@@ -67,7 +67,7 @@ export function EffectDetail({ id }: { id: string }) {
     };
   }, [id]);
 
-  /** 一键取用：复制配方到我的万花筒（与广场卡片行为一致） */
+  /** 一键取用：复制作品（与广场卡片行为一致）。 */
   const use = useCallback(() => {
     if (!effect) return;
     upsertEffect({
@@ -270,7 +270,7 @@ export function EffectDetail({ id }: { id: string }) {
               variant={used ? "secondary" : "primary"}
               className={cn("flex-1", used && "pointer-events-none border-transparent bg-success-light text-success")}
             >
-              {used ? "✓ 已取用到我的万花筒" : "使用"}
+              {used ? "✓ 已取用到我的作品" : "使用"}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => router.push(`/studio?fork=${effect.id}`)}>
               二创

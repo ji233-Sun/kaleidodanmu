@@ -14,7 +14,7 @@ interface Shard {
 }
 
 /**
- * 万花筒渲染引擎：把弹幕事件渲染为 N 重对称的碎片。
+ * 旧版兼容渲染器：把弹幕事件按配方渲染为对称动效。
  * 原型用 Canvas 2D；之后 WebGL/Three.js 图层在同一生命周期下扩展。
  */
 export class KaleidoRenderer {

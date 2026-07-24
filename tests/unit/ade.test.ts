@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AdeAgentTurnRequestSchema } from "@/lib/ade/protocol";
+import { ADE_GUIDE_FILE } from "@/lib/ade/guide";
 import { BrowserEffectProject } from "@/lib/ade/project";
 import { DEFAULT_EFFECT_SOURCE, transformEffectSource, validateEffectSource } from "@/lib/runtime/effect";
+import { AdeSessionPayloadSchema } from "@/types";
 import type { Recipe } from "@/lib/types";
 
 const recipe: Recipe = {
@@ -51,6 +53,43 @@ describe("browser Effect project", () => {
     expect(project.execute({ id: "1", name: "read_file", arguments: JSON.stringify({ path: "../.env" }) }).result).toContain("工具失败");
     expect(project.execute({ id: "2", name: "write_file", arguments: JSON.stringify({ path: "index.ts", content: "fetch('https://example.test')" }) }).result).toContain("不允许使用 fetch");
   });
+
+  it("serves the SDK guide as a read-only virtual file", () => {
+    const project = new BrowserEffectProject();
+    project.hydrate("初始效果", recipe);
+    const guide = project.execute({ id: "1", name: "read_file", arguments: JSON.stringify({ path: ADE_GUIDE_FILE }) });
+    expect(guide.result).toContain("onDanmaku");
+    expect(guide.result).toContain("DanmakuEvent");
+    expect(
+      project.execute({ id: "2", name: "write_file", arguments: JSON.stringify({ path: ADE_GUIDE_FILE, content: "x" }) }).result,
+    ).toContain("只读");
+  });
+});
+
+describe("ADE session payload contract", () => {
+  it("accepts agent work messages (reasoning + tool calls) alongside chat texts", () => {
+    expect(() =>
+      AdeSessionPayloadSchema.parse({
+        messages: [
+          { role: "user", text: "做一个可以自由绘制的蓝色 Canvas" },
+          { role: "reasoning", text: "先看下工程结构" },
+          { role: "assistant", text: "我先读取工程文件。" },
+          { role: "tool", name: "read_file", summary: "index.ts", status: "ok" },
+          { role: "tool", name: "refresh_preview", summary: "", status: "error", detail: "没有可刷新的改动" },
+        ],
+        files: { "effect.json": "{}", "index.ts": "x" },
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects unknown tool names in persisted history", () => {
+    expect(() =>
+      AdeSessionPayloadSchema.parse({
+        messages: [{ role: "tool", name: "exec_shell", summary: "", status: "ok" }],
+        files: { "effect.json": "", "index.ts": "" },
+      }),
+    ).toThrow();
+  });
 });
 
 describe("Effect Runtime source contract", () => {
@@ -71,5 +110,20 @@ describe("Effect Runtime source contract", () => {
         setup() { window.parent.postMessage("secret", "*"); return { onDanmaku() {} }; }
       });
     `)).toThrow("父页面访问");
+  });
+
+  it("allows a pointer-driven Canvas effect without danmaku input", () => {
+    expect(() => validateEffectSource(`
+      export default defineEffect({
+        setup() {
+          return {
+            onPointer(event) { void event.x; },
+            render() {},
+            resize() {},
+            dispose() {},
+          };
+        },
+      });
+    `)).not.toThrow();
   });
 });

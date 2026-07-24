@@ -4,7 +4,7 @@ import type { KaleidoEffect } from "./types";
 
 const KEY = "kaleido:effects:v1";
 
-/** 我的万花筒：原型阶段存 localStorage，之后替换为服务端 Effect 表 */
+/** 我的作品：原型阶段存 localStorage，之后替换为服务端 Effect 表。 */
 
 let cache: KaleidoEffect[] | null = null;
 const listeners = new Set<() => void>();

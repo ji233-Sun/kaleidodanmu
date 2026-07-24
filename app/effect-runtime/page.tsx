@@ -119,7 +119,6 @@ export default function EffectRuntimePage() {
         effect = definition.setup({ canvas, recipe: command.recipe, THREE, gsap });
         if (
           !effect ||
-          typeof effect.onDanmaku !== "function" ||
           typeof effect.render !== "function" ||
           typeof effect.resize !== "function" ||
           typeof effect.dispose !== "function"
@@ -148,7 +147,7 @@ export default function EffectRuntimePage() {
         if (command.type === "load") {
           load(command);
         } else if (command.type === "danmaku") {
-          effect?.onDanmaku(command.event);
+          effect?.onDanmaku?.(command.event);
         } else if (command.type === "playing") {
           playing = command.playing;
           effect?.setPlaying?.(playing);
@@ -172,9 +171,43 @@ export default function EffectRuntimePage() {
 
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
+    const pointerType = (type: "down" | "move" | "up" | "cancel") =>
+      (event: PointerEvent) => {
+        if (!effect?.onPointer) return;
+        const rect = canvas.getBoundingClientRect();
+        if (type === "down") canvas.setPointerCapture(event.pointerId);
+        try {
+          effect.onPointer({
+            type,
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+            nx: (event.clientX - rect.left) / Math.max(1, rect.width),
+            ny: (event.clientY - rect.top) / Math.max(1, rect.height),
+            pressure: event.pressure,
+            pointerId: event.pointerId,
+            pointerType: event.pointerType,
+          });
+        } catch (error) {
+          send({ type: "error", message: errorMessage(error) });
+        }
+      };
+    const onPointerDown = pointerType("down");
+    const onPointerMove = pointerType("move");
+    const onPointerUp = pointerType("up");
+    const onPointerCancel = pointerType("cancel");
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointercancel", onPointerCancel);
     window.addEventListener("message", onConnect);
+    // 主动向宿主宣告就绪：父页面的 connect 若先于本页挂载而丢失，可凭 boot 重连。
+    window.parent.postMessage({ type: "kaleido:boot" }, "*");
     return () => {
       observer.disconnect();
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
       window.removeEventListener("message", onConnect);
       port?.removeEventListener("message", onCommand);
       port?.close();

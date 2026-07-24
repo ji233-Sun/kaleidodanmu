@@ -80,7 +80,7 @@ function AuthorizeForm() {
       <div className="w-full rounded-2xl border border-line bg-card p-6 shadow-lg">
         <div className="mb-5 flex items-center gap-2">
           <span className="h-5 w-5 rotate-45 rounded-md bg-gradient-to-br from-bili-blue via-bili-purple to-bili-pink" />
-          <span className="text-sm font-bold text-ink">万花筒弹幕 · 授权</span>
+          <span className="text-sm font-bold text-ink">自由 Canvas · 授权</span>
         </div>
 
         {paramError ? (

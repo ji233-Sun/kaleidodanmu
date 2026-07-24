@@ -28,7 +28,7 @@ export interface UserProfile {
   bio: string;
   joinedAt: number;
   followers: number;
-  /** 发布的万花筒 */
+  /** 发布的作品 */
   effects: PublishedEffect[];
   /** 聚合统计 */
   totalLikes: number;
@@ -61,7 +61,7 @@ function mockDelay(ms = 260) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** GET /api/users/:name —— 用户资料 + 发布的万花筒 + 聚合统计 */
+/** GET /api/users/:name —— 用户资料 + 发布的作品 + 聚合统计 */
 export async function fetchUserProfile(name: string): Promise<UserProfile | null> {
   await mockDelay();
   const effects = SQUARE_ITEMS.filter((i) => i.author === name).map(enrich);
