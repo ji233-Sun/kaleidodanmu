@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 const SKILL_INSTALL = "npx -y skills add ji233-Sun/kaleidodanmu --skill kdanmu -g -y";
 const CLI_INSTALL = "npm i -g kdanmu";
 const AI_PROMPT =
-  "请帮我配置 Kaleido 弹幕效果开发环境：先运行 `npm i -g kdanmu` 全局安装 CLI，再运行 `npx -y skills add ji233-Sun/kaleidodanmu --skill kdanmu -g -y` 安装 kdanmu skill，然后运行 `kdanmu whoami` 确认登录状态，最后告诉我如何用 kdanmu init 创建一个新效果。";
+  "请帮我配置 Kaleido 弹幕效果开发环境：先运行 `npm i -g kdanmu` 全局安装 CLI，再运行 `npx -y skills add ji233-Sun/kaleidodanmu --skill kdanmu -g -y` 安装 kdanmu skill；然后运行 `kdanmu whoami` 检查登录状态，若未登录就引导我运行 `kdanmu login` 完成浏览器授权（交互式，由我本人完成，你不要代跑）；最后告诉我如何用 `kdanmu init` 创建一个新效果。";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
