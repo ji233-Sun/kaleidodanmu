@@ -307,7 +307,7 @@ function StudioInner() {
   };
 
   return (
-    <main className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden sm:h-[calc(100dvh-3.5rem)] lg:flex-row">
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       {/* 左：对话（CLI 效果包不支持网页 Agent 迭代） */}
       <div className="flex h-1/2 min-h-0 flex-none flex-col overflow-hidden border-b border-line bg-card lg:h-auto lg:w-100 lg:border-r lg:border-b-0">
         {effect?.packaged ? (
