@@ -97,11 +97,12 @@ export const EffectSandbox = forwardRef<EffectSandboxHandle, EffectSandboxProps>
         src="/effect-runtime"
         title="弹幕效果运行时"
         aria-hidden="true"
-        sandbox={
-          process.env.NODE_ENV === "development"
-            ? "allow-scripts allow-same-origin"
-            : "allow-scripts"
-        }
+        // 必须保留 allow-same-origin：若去掉，iframe 会变成不透明源（origin=null），
+        // WebKit/Safari 会把 CSP 的 'self' 解析为 null，从而拒绝加载同源的 _next chunk，
+        // 导致 Effect 运行时整页加载失败、弹幕不渲染（Chrome 对此更宽松，故无报错）。
+        // Effect 的隔离由运行时禁网（disableNetworkGlobals）+ import 白名单 + 产物校验保证，
+        // 不依赖 iframe 的跨源隔离。
+        sandbox="allow-scripts allow-same-origin"
         tabIndex={-1}
         onLoad={connect}
         className="absolute inset-0 h-full w-full touch-none border-0 bg-transparent"
