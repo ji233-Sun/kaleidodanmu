@@ -57,6 +57,8 @@ export default function MinePage() {
   const { user, loading: sessionLoading } = useSession();
   const [cloudError, setCloudError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const effects = useSyncExternalStore(
     subscribeEffects,
     getEffectsSnapshot,
@@ -123,6 +125,27 @@ export default function MinePage() {
     upsertEffect({ ...effect, shared: !effect.shared, updatedAt: Date.now() });
   }, [router]);
 
+  const startRename = useCallback((fx: KaleidoEffect) => {
+    setRenamingId(fx.id);
+    setRenameValue(fx.name);
+  }, []);
+  const cancelRename = useCallback(() => {
+    setRenamingId(null);
+    setRenameValue("");
+  }, []);
+  const confirmRename = useCallback(async (fx: KaleidoEffect) => {
+    const name = renameValue.trim();
+    if (!name || name === fx.name) {
+      cancelRename();
+      return;
+    }
+    if (fx.serverId) {
+      await apiFetch(`/api/effects/${fx.serverId}`, { method: "PATCH", json: { name } });
+    }
+    upsertEffect({ ...fx, name, updatedAt: Date.now() });
+    cancelRename();
+  }, [renameValue, cancelRename]);
+
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
       <MeSubnav active="/mine" />
@@ -175,12 +198,40 @@ export default function MinePage() {
               </button>
               <div className="p-4">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => router.push(`/studio?id=${fx.id}`)}
-                    className="truncate text-sm font-semibold text-ink hover:text-bili-pink"
-                  >
-                    {fx.name}
-                  </button>
+                  {renamingId === fx.id ? (
+                    <div className="flex min-w-0 flex-1 items-center gap-1">
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void confirmRename(fx).catch((err: unknown) => setCloudError(err instanceof Error ? err.message : "重命名失败"));
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        maxLength={64}
+                        className="min-w-0 flex-1 rounded-md border border-bili-pink bg-white px-2 py-0.5 text-sm text-ink outline-none"
+                      />
+                      <button
+                        onClick={() => void confirmRename(fx).catch((err: unknown) => setCloudError(err instanceof Error ? err.message : "重命名失败"))}
+                        className="flex-none rounded-md bg-bili-pink px-2 py-0.5 text-xs text-white hover:bg-bili-pink-hover"
+                      >
+                        确定
+                      </button>
+                      <button
+                        onClick={cancelRename}
+                        className="flex-none rounded-md bg-fill px-2 py-0.5 text-xs text-ink-2 hover:text-ink"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/studio?id=${fx.id}`)}
+                      className="truncate text-sm font-semibold text-ink hover:text-bili-pink"
+                    >
+                      {fx.name}
+                    </button>
+                  )}
                   <span className="flex-none rounded-full bg-bili-purple-light px-1.5 py-0.5 text-[10px] font-medium text-bili-purple">
                     v{fx.version}
                   </span>
@@ -216,6 +267,12 @@ export default function MinePage() {
                     )}
                   >
                     {fx.shared ? "已分享" : "分享"}
+                  </button>
+                  <button
+                    onClick={() => startRename(fx)}
+                    className="rounded-md px-3 py-1 text-xs text-ink-2 transition-colors hover:bg-fill hover:text-bili-pink"
+                  >
+                    重命名
                   </button>
                   <button
                     onClick={() => void remove(fx).catch((e: unknown) => setCloudError(e instanceof Error ? e.message : "删除失败"))}
