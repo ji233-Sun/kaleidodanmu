@@ -30,7 +30,7 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:h-14 sm:flex-nowrap sm:gap-8 sm:px-6 sm:py-0">
         <Link href="/" className="flex min-w-0 items-center gap-2 whitespace-nowrap">
           {/* eslint-disable-next-line @next/next/no-img-element -- 品牌图标，用原生 img 避免 SVG 走 next/image 配置 */}
-          <img src="/logo.svg" alt="Kaleido Danmu" className="h-6 w-6 shrink-0" />
+          <img src="/favicon.svg" alt="Kaleido Danmu" className="h-6 w-6 shrink-0" />
           <span className="text-lg font-bold tracking-tight text-ink">Kaleido Danmu</span>
         </Link>
         <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-0 sm:w-auto sm:justify-start">
