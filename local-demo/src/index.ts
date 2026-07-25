@@ -308,7 +308,8 @@ export default defineEffect({
       for (const z of Array.from(zombies)) removeZombie(z);
       for (const b of Array.from(bullets)) removeBullet(b);
       for (const s of Array.from(splats)) removeSplat(s);
-      spawnTimer = 0;
+      // 复位为完整刷怪间隔：清场后不能下一帧就立即生成新僵尸
+      spawnTimer = 1800 + (nextRand() % 1500);
     }
 
     return {

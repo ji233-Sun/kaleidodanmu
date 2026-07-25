@@ -21,6 +21,9 @@ export const ClassicDanmakuLayer = forwardRef<ClassicDanmakuHandle, { playing: b
     const containerRef = useRef<HTMLDivElement>(null);
     const laneSeqRef = useRef(0);
     const animsRef = useRef<Set<Animation>>(new Set());
+    // 顶/底固定弹幕槽位占用计数：避免多条固定弹幕叠在同一行
+    const topSlotsRef = useRef<number[]>([]);
+    const bottomSlotsRef = useRef<number[]>([]);
     const playingRef = useRef(playing);
     playingRef.current = playing;
 
@@ -45,11 +48,26 @@ export const ClassicDanmakuLayer = forwardRef<ClassicDanmakuHandle, { playing: b
           el.style.textShadow = "0 1px 3px rgba(0,0,0,0.55)";
 
           let anim: Animation;
+          let release: (() => void) | null = null;
           if (event.mode === "top" || event.mode === "bottom") {
+            const slots = event.mode === "top" ? topSlotsRef.current : bottomSlotsRef.current;
+            const maxSlots = Math.max(1, Math.floor(box.clientHeight / 2 / LANE_HEIGHT));
+            let slot = 0;
+            for (let i = 0; i < maxSlots; i++) {
+              if ((slots[i] ?? 0) === 0) {
+                slot = i;
+                break;
+              }
+              if ((slots[i] ?? 0) < (slots[slot] ?? 0)) slot = i;
+            }
+            slots[slot] = (slots[slot] ?? 0) + 1;
+            release = () => {
+              slots[slot] = Math.max(0, (slots[slot] ?? 0) - 1);
+            };
             el.style.left = "50%";
             el.style.transform = "translateX(-50%)";
-            if (event.mode === "top") el.style.top = "8px";
-            else el.style.bottom = "8px";
+            if (event.mode === "top") el.style.top = `${slot * LANE_HEIGHT + 8}px`;
+            else el.style.bottom = `${slot * LANE_HEIGHT + 8}px`;
             box.appendChild(el);
             anim = el.animate([{ opacity: 1 }, { opacity: 1 }], {
               duration: FIXED_DURATION_MS,
@@ -76,12 +94,15 @@ export const ClassicDanmakuLayer = forwardRef<ClassicDanmakuHandle, { playing: b
           animsRef.current.add(anim);
           anim.onfinish = () => {
             animsRef.current.delete(anim);
+            release?.();
             el.remove();
           };
         },
         reset() {
           for (const anim of animsRef.current) anim.cancel();
           animsRef.current.clear();
+          topSlotsRef.current = [];
+          bottomSlotsRef.current = [];
           containerRef.current?.replaceChildren();
         },
       }),

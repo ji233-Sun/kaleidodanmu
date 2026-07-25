@@ -32,7 +32,7 @@ canvas、recipe、THREE、gsap，并返回：
 | onPointer(event) | 可选 | 用户在 Canvas 上按下、移动、抬起或取消 |
 | onDanmaku(event) | 可选 | 接收宿主推送的弹幕事件 |
 | setPlaying(playing) | 可选 | 同步播放状态 |
-| reset() | 可选 | 清空作品状态 |
+| reset() | 可选 | 清空作品状态：移除所有可见对象（含弹幕之外的互动实体、粒子、装饰物），并复位自主生成计时器/循环，reset 后在宿主再次推送事件前不得生成新对象 |
 
 最小骨架：
 

@@ -83,6 +83,8 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
     const [liveState, setLiveState] = useState<"idle" | "loading" | "ready" | "error">("idle");
     const [vodCount, setVodCount] = useState(0);
     const [activeSource, setActiveSource] = useState<ResolvedEffectSource>(defaultSource);
+    /** 特效层是否生效（片段内 / 直播选中万花筒）；片段外冻结，防止自主生成实体的特效持续产生残留。 */
+    const [sandboxActive, setSandboxActive] = useState(false);
 
     // rAF 循环里用的最新引用，避免反复重建循环
     const clipsRef = useRef(clips);
@@ -111,14 +113,21 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       const id = seg?.id ?? null;
       if (id === activeIdRef.current) return;
       activeIdRef.current = id;
-      sandboxRef.current?.reset();
       classicRef.current?.reset();
+      setSandboxActive(seg !== null);
       onActiveClipChangeRef.current(id);
       if (seg) {
+        sandboxRef.current?.reset();
         const resolved = resolveRef.current(seg.effectId);
         if (resolved) setActiveSource(resolved);
       }
     }, []);
+
+    // 离开片段后的清场：子组件 effect 先发 playing:false（同一 MessagePort 顺序送达），
+    // 冻结后再 reset，防止带自主生成循环的特效清场后又立刻生成新实体造成残留
+    useEffect(() => {
+      if (!sandboxActive) sandboxRef.current?.reset();
+    }, [sandboxActive]);
 
     /** 按当前生效目标路由弹幕：true → 特效层，false → 经典默认弹幕。 */
     const emitDanmaku = useCallback((event: DanmakuEvent, useEffect: boolean) => {
@@ -143,13 +152,17 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
     liveEffectRef.current = liveResolved;
 
     useEffect(() => {
-      if (mode !== "live") return;
+      if (mode !== "live") {
+        setSandboxActive(false);
+        return;
+      }
       // 进入直播或切换选中：清场并加载对应特效；同时清掉视频模式的片段状态
       activeIdRef.current = null;
       sandboxRef.current?.reset();
       classicRef.current?.reset();
       onActiveClipChangeRef.current(null);
       setActiveSource(liveResolved ?? defaultSource);
+      setSandboxActive(liveResolved !== null);
     }, [mode, liveResolved, defaultSource]);
 
     /* ---------- 调度循环 ---------- */
@@ -167,10 +180,16 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           const events = vodEventsRef.current;
           const last = vodLastRef.current;
           if (nowMs < last - 100) {
-            // 回退跳转或循环：按时间线重放
-            vodIdxRef.current = 0;
+            // 回退跳转或循环：清场后把索引快进到播放头，避免历史弹幕一帧内全量发射
             sandboxRef.current?.reset();
             classicRef.current?.reset();
+            vodIdxRef.current = 0;
+            while (
+              vodIdxRef.current < events.length &&
+              (events[vodIdxRef.current].videoTimeMs ?? 0) <= nowMs
+            ) {
+              vodIdxRef.current++;
+            }
           } else if (nowMs > last + 1000) {
             // 前跳：静默快进索引，避免积压弹幕一次性洪峰
             while (
@@ -276,28 +295,35 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
         bufferingRef.current = false;
         setBuffering(false);
       };
+      const onEnded = () => {
+        sandboxRef.current?.reset();
+        classicRef.current?.reset();
+      };
       v.addEventListener("loadedmetadata", onMeta);
       v.addEventListener("durationchange", onMeta);
       v.addEventListener("play", onPlay);
       v.addEventListener("pause", onPause);
+      v.addEventListener("ended", onEnded);
       v.addEventListener("loadstart", onBufferStart);
       v.addEventListener("waiting", onBufferStart);
-      v.addEventListener("stalled", onBufferStart);
       v.addEventListener("playing", onBufferEnd);
       v.addEventListener("canplay", onBufferEnd);
       v.addEventListener("seeked", onBufferEnd);
+      // 兜底解冻：真卡顿时 timeupdate 不会触发，视频在走帧则不该处于缓冲态
+      v.addEventListener("timeupdate", onBufferEnd);
       v.play().catch(() => {});
       return () => {
         v.removeEventListener("loadedmetadata", onMeta);
         v.removeEventListener("durationchange", onMeta);
         v.removeEventListener("play", onPlay);
         v.removeEventListener("pause", onPause);
+        v.removeEventListener("ended", onEnded);
         v.removeEventListener("loadstart", onBufferStart);
         v.removeEventListener("waiting", onBufferStart);
-        v.removeEventListener("stalled", onBufferStart);
         v.removeEventListener("playing", onBufferEnd);
         v.removeEventListener("canplay", onBufferEnd);
         v.removeEventListener("seeked", onBufferEnd);
+        v.removeEventListener("timeupdate", onBufferEnd);
       };
     }, [onDuration, onPlayingChange]);
 
@@ -355,14 +381,19 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           <ClassicDanmakuLayer ref={classicRef} playing={playing && !buffering} />
         </div>
 
-        {/* 特效层（片段内），不拦截指针，点击穿透到视频用于播放/暂停；视频缓冲时冻结 */}
-        <div className="pointer-events-none absolute inset-0 z-6">
+        {/* 特效层（片段内），不拦截指针，点击穿透到视频用于播放/暂停；视频缓冲时冻结，片段外冻结并隐藏 */}
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-0 z-6",
+            !sandboxActive && "invisible",
+          )}
+        >
           <EffectSandbox
             ref={sandboxRef}
             source={activeSource.source}
             recipe={activeSource.recipe}
             assets={activeSource.assets}
-            playing={playing && !buffering}
+            playing={playing && !buffering && sandboxActive}
             onFps={setFps}
             onError={setEffectError}
           />

@@ -228,6 +228,8 @@ export default function EffectRuntimePage() {
           lastFrame = performance.now();
         } else if (command.type === "reset") {
           effect?.reset?.();
+          // 暂停态渲染循环不跑，补一帧让清场立即生效，避免画布残留旧像素
+          if (effect && !playing) effect.render({ now: performance.now(), delta: 0 });
         }
       } catch (error) {
         send({ type: "error", message: errorMessage(error) });
