@@ -118,6 +118,12 @@ function mountHome(state: HomeState, version: string): Promise<HomeAction> {
     terminalCleanup = installTerminalCleanup(cleanup, { signalPolicy: 'reraise' })
     driver = createStdinDriver({
       dispatch(event) {
+        // Ctrl+C 直接退出：raw 模式下不触发 SIGINT，需拦截 \x03 对应的 keydown；
+        // 显式处理避免被 Vue 事件系统吞掉后 onExit 不触发。
+        if (event.type === 'keydown' && event.ctrlKey && (event.key === 'c' || event.key === 'C')) {
+          finish('quit')
+          return true
+        }
         // q 直接退出（主页没有文本输入场景）
         if (event.type === 'keydown' && (event.key === 'q' || event.key === 'Q')) {
           finish('quit')
