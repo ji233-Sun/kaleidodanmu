@@ -17,3 +17,4 @@ export { Progress } from "./progress";
 export type { ProgressProps } from "./progress";
 export { Alert } from "./alert";
 export type { AlertProps } from "./alert";
+export { Markdown } from "./markdown";

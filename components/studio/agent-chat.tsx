@@ -11,6 +11,7 @@ import type { AdeChatMessage, AdeSessionPayload } from "@/types";
 import { ApiError, apiFetch } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/cn";
+import { Markdown } from "@/components/ui/markdown";
 
 type ChatMsg = AdeChatMessage;
 type ToolMsg = Extract<AdeChatMessage, { role: "tool" }>;
@@ -489,8 +490,8 @@ export function AgentChat({
                 <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-linear-to-br from-bili-blue via-bili-purple to-bili-pink text-[10px] font-bold text-white">
                   K
                 </span>
-                <div className="max-w-[85%] whitespace-pre-wrap text-sm leading-6 text-ink">
-                  {m.text}
+                <div className="max-w-[85%] text-ink">
+                  <Markdown text={m.text} />
                 </div>
               </div>
             );
