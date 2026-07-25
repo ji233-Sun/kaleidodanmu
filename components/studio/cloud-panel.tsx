@@ -363,18 +363,27 @@ export function CloudPanel({ effect }: { effect: KaleidoEffect }) {
                 </div>
               </div>
 
-              {/* 操作 */}
+              {/* 操作：CLI 效果包的版本由 kdanmu CLI 管理，隐藏会覆盖包内容的网页写操作 */}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={busy !== null} onClick={syncDraft}>
-                  {busy === "sync" ? "同步中…" : "同步草稿到云端"}
-                </Button>
-                <Button variant="secondary" size="sm" disabled={busy !== null} onClick={uploadVersion}>
-                  {busy === "version" ? "上传中…" : "上传为新版本"}
-                </Button>
+                {!effect.packaged && (
+                  <>
+                    <Button size="sm" disabled={busy !== null} onClick={syncDraft}>
+                      {busy === "sync" ? "同步中…" : "同步草稿到云端"}
+                    </Button>
+                    <Button variant="secondary" size="sm" disabled={busy !== null} onClick={uploadVersion}>
+                      {busy === "version" ? "上传中…" : "上传为新版本"}
+                    </Button>
+                  </>
+                )}
                 <Button variant="ghost" size="sm" disabled={busy !== null} onClick={unlink}>
                   解除关联
                 </Button>
               </div>
+              {effect.packaged && (
+                <p className="text-xs leading-5 text-ink-3">
+                  该作品是 kdanmu CLI 上传的效果包，新版本请在本地工程执行 kdanmu upload；此处仅管理发布渠道。
+                </p>
+              )}
 
               {/* 版本列表 */}
               <div>

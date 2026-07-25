@@ -5,6 +5,20 @@ import { gsap } from "gsap";
 import type { DanmakuEvent, EffectDefinition, EffectInstance } from "kdanmu-sdk";
 import effectDef from "../src/index";
 
+// 与线上运行时对齐：把 assets/ 下的文件注册进全局资源表，assetUrl("xx.png") 才能解析。
+const assetModules = import.meta.glob("../assets/**/*", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+const assetRegistry: Record<string, string> = {};
+for (const [key, url] of Object.entries(assetModules)) {
+  if (key.toLowerCase().endsWith("readme.md")) continue;
+  assetRegistry[key.replace("../assets/", "")] = url;
+}
+(globalThis as typeof globalThis & { __KALEIDO_ASSETS__?: Record<string, string> }).__KALEIDO_ASSETS__ =
+  assetRegistry;
+
 const canvas = document.getElementById("c") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLDivElement;
 const recipe = {

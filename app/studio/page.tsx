@@ -22,7 +22,20 @@ import { CloudPanel } from "@/components/studio/cloud-panel";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
-import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
+import { DEFAULT_EFFECT_SOURCE, type RuntimeAsset } from "@/lib/runtime/effect";
+import type { VersionArtifactResponse } from "@/types";
+
+/** base64（UTF-8 字节）→ 文本。 */
+function decodeBase64Utf8(base64: string): string {
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+type PackagedArtifact =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; source: string; assets: RuntimeAsset[]; version: string };
 
 function StudioInner() {
   const router = useRouter();
@@ -136,7 +149,7 @@ function StudioInner() {
   }, [agentBusy, effect, user]);
 
   useEffect(() => {
-    if (!user || !effect?.serverId || agentBusy) return;
+    if (!user || !effect?.serverId || effect.packaged || agentBusy) return;
     const timer = window.setTimeout(() => {
       const snapshotJson = JSON.stringify({
         prompt: effect.prompt,
@@ -160,6 +173,37 @@ function StudioInner() {
     }, 700);
     return () => window.clearTimeout(timer);
   }, [agentBusy, effect, user]);
+
+  const packagedServerId = effect?.packaged ? effect.serverId ?? null : null;
+  const [artifact, setArtifact] = useState<PackagedArtifact | null>(null);
+
+  // 效果包：加载 draft 渠道的真实产物（编译后的入口 ESM + 资源）用于预览
+  useEffect(() => {
+    let cancelled = false;
+    if (!packagedServerId) {
+      void Promise.resolve().then(() => !cancelled && setArtifact(null));
+      return () => { cancelled = true; };
+    }
+    void Promise.resolve().then(() => !cancelled && setArtifact({ status: "loading" }));
+    apiFetch<VersionArtifactResponse>(`/api/effects/${packagedServerId}/artifact?channel=draft`)
+      .then((art) => {
+        if (cancelled) return;
+        setArtifact({
+          status: "ready",
+          source: decodeBase64Utf8(art.entry.data),
+          assets: art.assets,
+          version: art.version.version,
+        });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setArtifact({
+          status: "error",
+          message: e instanceof Error ? e.message : "加载效果包产物失败",
+        });
+      });
+    return () => { cancelled = true; };
+  }, [packagedServerId]);
 
   // Agent 产出新配方：创建或保存新版本
   const handleApply = (recipe: Recipe, name?: string, _changes?: string[], entrySource?: string) => {
@@ -264,28 +308,45 @@ function StudioInner() {
 
   return (
     <main className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden sm:h-[calc(100dvh-3.5rem)] lg:flex-row">
-      {/* 左：对话 */}
+      {/* 左：对话（CLI 效果包不支持网页 Agent 迭代） */}
       <div className="flex h-1/2 min-h-0 flex-none flex-col overflow-hidden border-b border-line bg-card lg:h-auto lg:w-100 lg:border-r lg:border-b-0">
-        <AgentChat
-          key={chatKey}
-          recipe={effect?.recipe ?? null}
-          entrySource={effect?.entrySource}
-          autoPrompt={prompt ?? (forkItem ? forkItem.prompt : undefined)}
-          creationName={forkItem ? `${forkItem.name} · 二创` : undefined}
-          creationRecipe={forkItem?.recipe}
-          intro={
-            !prompt && !forkItem && effect
-              ? `已加载「${effect.name}」（当前 v${effect.version}）。\n\n原始需求：「${effect.prompt}」\n\n直接告诉我你想怎么调整画面、动画或交互。`
-              : undefined
-          }
-          targetKey={chatKey}
-          aliasKeys={aliasKeys}
-          externalPrompt={outbox}
-          onExternalPromptConsumed={() => setOutbox(null)}
-          onApply={handleApply}
-          onBusyChange={handleBusyChange}
-          className="min-h-0 flex-1"
-        />
+        {effect?.packaged ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">
+            <p className="text-sm font-semibold text-ink">CLI 效果包</p>
+            <p className="text-sm leading-6 text-ink-2">
+              「{effect.name}」是通过 kdanmu CLI 上传的编译效果包，源码在你的本地工程里，
+              网页 Agent 无法迭代它。
+            </p>
+            <p className="text-sm leading-6 text-ink-2">
+              如需修改，请在本地工程中编辑后重新执行
+              <code className="mx-1 rounded bg-fill px-1.5 py-0.5 text-xs">kdanmu build</code>
+              与
+              <code className="mx-1 rounded bg-fill px-1.5 py-0.5 text-xs">kdanmu upload</code>
+              上传新版本；右侧面板可管理版本与发布渠道。
+            </p>
+          </div>
+        ) : (
+          <AgentChat
+            key={chatKey}
+            recipe={effect?.recipe ?? null}
+            entrySource={effect?.entrySource}
+            autoPrompt={prompt ?? (forkItem ? forkItem.prompt : undefined)}
+            creationName={forkItem ? `${forkItem.name} · 二创` : undefined}
+            creationRecipe={forkItem?.recipe}
+            intro={
+              !prompt && !forkItem && effect
+                ? `已加载「${effect.name}」（当前 v${effect.version}）。\n\n原始需求：「${effect.prompt}」\n\n直接告诉我你想怎么调整画面、动画或交互。`
+                : undefined
+            }
+            targetKey={chatKey}
+            aliasKeys={aliasKeys}
+            externalPrompt={outbox}
+            onExternalPromptConsumed={() => setOutbox(null)}
+            onApply={handleApply}
+            onBusyChange={handleBusyChange}
+            className="min-h-0 flex-1"
+          />
+        )}
       </div>
 
       {/* 右：预览 + 信息 */}
@@ -327,6 +388,26 @@ function StudioInner() {
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-bili-pink border-t-transparent" />
               Agent 正在生成效果，完成后会在这里展示预览…
             </div>
+          ) : effect?.packaged ? (
+            artifact?.status === "ready" ? (
+              <KaleidoPlayer
+                recipe={recipe}
+                effectSource={artifact.source}
+                effectAssets={artifact.assets}
+                seed={seed}
+                title={`${effect.name} · 效果包 v${artifact.version}`}
+                onEffectError={setEffectError}
+              />
+            ) : artifact?.status === "error" ? (
+              <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-line bg-card px-6 text-center text-sm text-error">
+                无法加载效果包产物：{artifact.message}
+              </div>
+            ) : (
+              <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-xl border border-line bg-card text-sm text-ink-3">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-bili-pink border-t-transparent" />
+                正在加载效果包产物…
+              </div>
+            )
           ) : effect ? (
             <KaleidoPlayer
               recipe={recipe}
@@ -347,12 +428,14 @@ function StudioInner() {
               <span className="min-w-0 flex-1 truncate" title={effectError}>
                 预览运行出错：{effectError}
               </span>
-              <button
-                onClick={askAgentToFix}
-                className="flex-none rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500"
-              >
-                让 Agent 修复
-              </button>
+              {!effect?.packaged && (
+                <button
+                  onClick={askAgentToFix}
+                  className="flex-none rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500"
+                >
+                  让 Agent 修复
+                </button>
+              )}
             </div>
           )}
 

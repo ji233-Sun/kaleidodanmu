@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { HttpError } from '@/server/utils/errors'
 import { EffectRepository } from '@/server/repositories/effect.repository'
 import { EffectVersionRepository } from '@/server/repositories/effectVersion.repository'
-import { LIMITS, SafePathSchema } from '@/types'
+import { LIMITS, RecipeSchema, SafePathSchema } from '@/types'
 import type {
   EffectVersionDto,
   CreateVersionRequest,
@@ -53,7 +53,8 @@ export const VersionService = {
   },
 
   async create(effectId: number, ownerId: number, input: CreateVersionRequest) {
-    if (!(await EffectRepository.findByIdOwned(effectId, ownerId))) {
+    const effect = await EffectRepository.findByIdOwned(effectId, ownerId)
+    if (!effect) {
       throw new HttpError(404, 'not_found', 'Effect not found')
     }
     if (await EffectVersionRepository.findByEffectAndVersion(effectId, input.version)) {
@@ -129,8 +130,28 @@ export const VersionService = {
       createdBy: ownerId,
     })
 
-    // 新版本默认进 draft 指针
-    await EffectRepository.update(effectId, { draftVersionId: version.id })
+    // 新版本默认进 draft 指针；CLI 上传的 effect 没有网页配方，用 manifest 的 recipe 回填以便前端展示
+    const updates: Partial<{ draftVersionId: number; recipeJson: string }> = {
+      draftVersionId: version.id,
+    }
+    const currentRecipeValid = (() => {
+      try {
+        return RecipeSchema.safeParse(JSON.parse(effect.recipeJson || '{}')).success
+      } catch {
+        return false
+      }
+    })()
+    if (!currentRecipeValid) {
+      try {
+        const manifestRecipe = RecipeSchema.safeParse(
+          (JSON.parse(input.manifestJson) as { recipe?: unknown }).recipe,
+        )
+        if (manifestRecipe.success) updates.recipeJson = JSON.stringify(manifestRecipe.data)
+      } catch {
+        // manifestJson 不可解析时跳过回填
+      }
+    }
+    await EffectRepository.update(effectId, updates)
 
     return toVersionDto(version)
   },

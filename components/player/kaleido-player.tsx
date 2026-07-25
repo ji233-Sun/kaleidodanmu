@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DanmakuEvent, Recipe } from "@/lib/types";
 import { liveFrameToEvent, vodElemToEvent } from "@/lib/danmaku";
 import type { LiveFrame, VodDanmakuReply } from "@/types";
-import { DEFAULT_EFFECT_SOURCE } from "@/lib/runtime/effect";
+import { DEFAULT_EFFECT_SOURCE, type RuntimeAsset } from "@/lib/runtime/effect";
 import { EffectSandbox, type EffectSandboxHandle } from "@/components/player/effect-sandbox";
 import { cn } from "@/lib/cn";
 
@@ -19,6 +19,7 @@ function fmt(s: number) {
 export function KaleidoPlayer({
   recipe,
   effectSource = DEFAULT_EFFECT_SOURCE,
+  effectAssets,
   seed = 42,
   title = "【演示】Kaleido Danmu · 概念视频",
   autoPlay = true,
@@ -26,6 +27,7 @@ export function KaleidoPlayer({
 }: {
   recipe: Recipe;
   effectSource?: string;
+  effectAssets?: RuntimeAsset[];
   seed?: number;
   title?: string;
   autoPlay?: boolean;
@@ -253,6 +255,7 @@ export function KaleidoPlayer({
           ref={effectRef}
           source={effectSource}
           recipe={recipe}
+          assets={effectAssets}
           playing={playing}
           onFps={setFps}
           onError={setEffectError}

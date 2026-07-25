@@ -21,6 +21,8 @@ export interface KaleidoEffect {
   published?: boolean;
   /** 关联的服务端 Effect id（未同步到云端时为空） */
   serverId?: number;
+  /** CLI 上传的 Effect Package：产物为编译后的 ESM 包，不支持网页 Agent 迭代 */
+  packaged?: boolean;
 }
 
 /** 广场作品 */

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2",
   "sdkVersion": "0.1.0",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "name": "local-demo",
   "entry": "entry.mjs",
   "recipe": {

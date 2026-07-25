@@ -19,20 +19,23 @@ import { useSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import type { DraftDto, EffectDto, EffectListResponse } from "@/types";
 import { RecipeSchema } from "@/lib/ade/project";
+import { defaultRecipe } from "@/lib/recipes";
 
 function restoreCloudEffect(effect: EffectDto, draft: DraftDto | null): KaleidoEffect | null {
   let snapshot: Partial<KaleidoEffect> = {};
   if (draft) {
     try { snapshot = JSON.parse(draft.snapshotJson) as Partial<KaleidoEffect>; } catch { snapshot = {}; }
   }
+  // CLI 上传的 Effect Package：没有网页草稿快照，但已有上传版本
+  const packaged = !draft && effect.draftVersionId !== null;
   const recipeResult = RecipeSchema.safeParse(snapshot.recipe ?? effect.recipe);
-  if (!recipeResult.success) return null;
+  if (!recipeResult.success && !packaged) return null;
   return {
     id: `cloud-${effect.id}`,
     serverId: effect.id,
     name: effect.name,
     prompt: typeof snapshot.prompt === "string" ? snapshot.prompt : effect.prompt,
-    recipe: recipeResult.data,
+    recipe: recipeResult.success ? recipeResult.data : defaultRecipe(effect.slug),
     entrySource: typeof snapshot.entrySource === "string" ? snapshot.entrySource : undefined,
     version: typeof snapshot.version === "number" ? snapshot.version : 1,
     createdAt: Date.parse(effect.createdAt),
@@ -40,6 +43,7 @@ function restoreCloudEffect(effect: EffectDto, draft: DraftDto | null): KaleidoE
     forkedFrom: effect.forkedFrom ? String(effect.forkedFrom) : undefined,
     shared: effect.visibility === "public" && effect.publishedVersionId !== null,
     published: effect.publishedVersionId !== null,
+    packaged,
   };
 }
 
@@ -85,6 +89,7 @@ export default function MinePage() {
               shared: effect.shared,
               published: effect.published,
               forkedFrom: effect.forkedFrom,
+              packaged: effect.packaged,
             });
           } else {
             upsertEffect(existing ? { ...effect, id: existing.id } : effect);
@@ -172,6 +177,11 @@ export default function MinePage() {
                   <span className="flex-none rounded-full bg-bili-purple-light px-1.5 py-0.5 text-[10px] font-medium text-bili-purple">
                     v{fx.version}
                   </span>
+                  {fx.packaged && (
+                    <span className="flex-none rounded-full bg-fill px-1.5 py-0.5 text-[10px] font-medium text-ink-2" title="通过 kdanmu CLI 上传的效果包，不支持网页 Agent 迭代">
+                      效果包
+                    </span>
+                  )}
                   {fx.forkedFrom && (
                     <span className="flex-none rounded-full bg-bili-blue-light px-1.5 py-0.5 text-[10px] text-bili-blue">
                       二创
@@ -187,7 +197,7 @@ export default function MinePage() {
                     href={`/studio?id=${fx.id}`}
                     className="rounded-md bg-bili-pink px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-bili-pink-hover"
                   >
-                    继续创作
+                    {fx.packaged ? "管理版本" : "继续创作"}
                   </Link>
                   <button
                     onClick={() => void toggleShare(fx).catch((e: unknown) => setCloudError(e instanceof Error ? e.message : "分享设置失败"))}
