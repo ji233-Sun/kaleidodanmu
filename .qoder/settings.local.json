@@ -18,7 +18,8 @@
       "Bash(cd /Users/ji233/Documents/0MyProjects/kaleidodanmu/local-demo && cat .kdanmu.json && echo \"---GITIGNORE---\" && cat .gitignore && echo \"---EFFECT---\" && cat effect.json)",
       "Bash(cd /Users/ji233/Documents/0MyProjects/kaleidodanmu && ls -la && echo \"---GIT LOG---\" && git --no-pager log --oneline -20)",
       "Bash(kdanmu whoami:*)",
-      "Bash(find cli packages -type f -name \"*.ts\" | grep -v node_modules | grep -v dist | head -50; echo ---; ls packages 2>/dev/null)"
+      "Bash(find cli packages -type f -name \"*.ts\" | grep -v node_modules | grep -v dist | head -50; echo ---; ls packages 2>/dev/null)",
+      "Bash(grep -n \"engines\" /Users/ji233/Documents/0MyProjects/kaleidodanmu/packages/*/package.json /Users/ji233/Documents/0MyProjects/kaleidodanmu/package.json 2>/dev/null; ls /Users/ji233/Documents/0MyProjects/kaleidodanmu/public/kaleido-runtime)"
     ]
   }
 }

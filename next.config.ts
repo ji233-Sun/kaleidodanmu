@@ -4,6 +4,7 @@ const runtimeConnectSource =
   process.env.NODE_ENV === "development" ? "connect-src 'self' ws:" : "connect-src 'none'";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   transpilePackages: ["kdanmu-sdk"],
   serverExternalPackages: ["better-sqlite3", "typeorm"],
   async headers() {

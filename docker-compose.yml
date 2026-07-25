@@ -1,0 +1,21 @@
+services:
+  app:
+    image: ghcr.io/ji233-sun/kaleidodanmu:latest
+    container_name: kaleidodanmu
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # 生产环境务必改成随机长字符串
+      SESSION_SECRET: ${SESSION_SECRET:-dev-secret-change-me}
+      # SQLite 数据库文件（位于容器内 /app/data，由下方卷映射到宿主机 ./data）
+      DB_PATH: ./data/app.db
+      # LLM 代理（可选，留空则不启用）
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    volumes:
+      # SQLite 数据库 + 用户上传的效果包产物（data/artifacts）
+      # 注意：容器以 uid 1001 运行，Linux 宿主机上首次启动前请执行：
+      #   mkdir -p data && sudo chown -R 1001:1001 data
+      - ./data:/app/data
