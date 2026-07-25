@@ -7,6 +7,7 @@ import { createCommand } from 'commander'
 import pkg from '../package.json'
 import { login, whoami } from './auth'
 import { buildCmd, devCmd, initCmd, publishCmd, uploadCmd, validateCmd } from './commands'
+import { runInteractive } from './tui/interactive'
 
 const program = createCommand()
 
@@ -97,7 +98,14 @@ program
     }) => publishCmd(opts),
   )
 
-program.parseAsync(process.argv).catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+// 无参数：进入交互式主页（点云 logo 动画 + 快捷菜单）；非 TTY 回退为帮助输出
+if (process.argv.length <= 2) {
+  runInteractive(pkg.version).then((handled) => {
+    if (!handled) program.outputHelp()
+  })
+} else {
+  program.parseAsync(process.argv).catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

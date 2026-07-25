@@ -60,3 +60,5 @@ public/kaleido-runtime/
 /.playwright
 
 .playwright-cli
+
+.qoder

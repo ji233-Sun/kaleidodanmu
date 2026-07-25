@@ -18,16 +18,18 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "kdanmu-sdk": "workspace:*",
+    "@simon_he/vue-tui": "^1.1.1",
     "better-sqlite3": "^13.0.1",
     "commander": "^15.0.0",
     "gsap": "3.15.0",
+    "kdanmu-sdk": "workspace:*",
     "next": "16.2.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "reflect-metadata": "^0.2.2",
     "three": "0.185.1",
     "typeorm": "^1.1.0",
+    "vue": "^3.5.40",
     "zod": "^4.4.3"
   },
   "devDependencies": {

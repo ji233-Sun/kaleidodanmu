@@ -46,8 +46,17 @@ KDANMU_BASE_URL=http://localhost:3000 kdanmu upload
 
 ## 2. 快速开始
 
+### 交互模式（无参数运行）
+
+不带任何参数运行 `kdanmu`，会进入基于 [vue-tui](https://github.com/Simon-He95/vue-tui) 的交互式主页：
+
+- 顶部是 three.js 驱动的像素风立体字动画（`cli/tui/pixel-text-animation.ts`）："KALEIDODANMU" 用 5×7 像素字体 + 下方投影层构成，粒子从三维空间聚合成字，一道高光扫过字幕后散开，循环播放；渐变配色取自 favicon。
+- 下方是状态栏与快捷菜单，会区分登录态：未登录时首项是「登录」（浏览器 OAuth），已登录时显示账号并多出「上传版本 / 发布到 staging / 我的作品」。
+- 菜单项选中后拆除 TUI、在普通终端执行对应命令，结束按 Enter 回到主页；`q` 或 Ctrl+C 退出。非 TTY 环境（管道/CI）自动回退为打印帮助。
+
 ```bash
-kdanmu init my-effect     # 从内置模板创建工程
+kdanmu                  # 交互式主页
+kdanmu init my-effect   # 以下仍是传统的子命令用法
 cd my-effect
 npm install               # 安装 kdanmu-sdk、vite（模板已配好）
 npm run dev               # = kdanmu dev，本地预览（HMR + mock 弹幕）
