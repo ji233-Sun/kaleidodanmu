@@ -73,6 +73,9 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
     const classicRef = useRef<ClassicDanmakuHandle>(null);
 
     const [playing, setPlaying] = useState(false);
+    /** 视频缓冲中（含初始加载）：两层弹幕都冻结，严格跟随视频帧。 */
+    const [buffering, setBuffering] = useState(true);
+    const bufferingRef = useRef(true);
     const [durMs, setDurMs] = useState(0);
     const [fps, setFps] = useState(0);
     const [effectError, setEffectError] = useState<string | null>(null);
@@ -176,7 +179,7 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
             ) {
               vodIdxRef.current++;
             }
-          } else if (!v.paused) {
+          } else if (!v.paused && !bufferingRef.current) {
             while (
               vodIdxRef.current < events.length &&
               (events[vodIdxRef.current].videoTimeMs ?? 0) <= nowMs
@@ -265,16 +268,36 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
         setPlaying(false);
         onPlayingChange(false);
       };
+      const onBufferStart = () => {
+        bufferingRef.current = true;
+        setBuffering(true);
+      };
+      const onBufferEnd = () => {
+        bufferingRef.current = false;
+        setBuffering(false);
+      };
       v.addEventListener("loadedmetadata", onMeta);
       v.addEventListener("durationchange", onMeta);
       v.addEventListener("play", onPlay);
       v.addEventListener("pause", onPause);
+      v.addEventListener("loadstart", onBufferStart);
+      v.addEventListener("waiting", onBufferStart);
+      v.addEventListener("stalled", onBufferStart);
+      v.addEventListener("playing", onBufferEnd);
+      v.addEventListener("canplay", onBufferEnd);
+      v.addEventListener("seeked", onBufferEnd);
       v.play().catch(() => {});
       return () => {
         v.removeEventListener("loadedmetadata", onMeta);
         v.removeEventListener("durationchange", onMeta);
         v.removeEventListener("play", onPlay);
         v.removeEventListener("pause", onPause);
+        v.removeEventListener("loadstart", onBufferStart);
+        v.removeEventListener("waiting", onBufferStart);
+        v.removeEventListener("stalled", onBufferStart);
+        v.removeEventListener("playing", onBufferEnd);
+        v.removeEventListener("canplay", onBufferEnd);
+        v.removeEventListener("seeked", onBufferEnd);
       };
     }, [onDuration, onPlayingChange]);
 
@@ -327,19 +350,19 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           className="absolute inset-0 h-full w-full object-contain"
         />
 
-        {/* 经典默认弹幕层（片段外），不拦截指针 */}
+        {/* 经典默认弹幕层（片段外），不拦截指针；视频缓冲时冻结 */}
         <div className="pointer-events-none absolute inset-0 z-5">
-          <ClassicDanmakuLayer ref={classicRef} playing={playing} />
+          <ClassicDanmakuLayer ref={classicRef} playing={playing && !buffering} />
         </div>
 
-        {/* 特效层（片段内），不拦截指针，点击穿透到视频用于播放/暂停 */}
+        {/* 特效层（片段内），不拦截指针，点击穿透到视频用于播放/暂停；视频缓冲时冻结 */}
         <div className="pointer-events-none absolute inset-0 z-6">
           <EffectSandbox
             ref={sandboxRef}
             source={activeSource.source}
             recipe={activeSource.recipe}
             assets={activeSource.assets}
-            playing={playing}
+            playing={playing && !buffering}
             onFps={setFps}
             onError={setEffectError}
           />
@@ -368,8 +391,16 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           )}
         </div>
 
+        {/* 缓冲指示：视频加载/卡顿期间弹幕同步冻结 */}
+        {buffering && (
+          <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+            <span className="text-xs text-white/70">视频加载中…</span>
+          </div>
+        )}
+
         {/* 暂停大图标 */}
-        {!playing && (
+        {!playing && !buffering && (
           <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
             <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
               <path d="M8 5v14l11-7z" />

@@ -42,6 +42,9 @@ export function KaleidoPlayer({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [playing, setPlaying] = useState(false);
+  /** 视频缓冲中（含初始加载）：特效层冻结、暂停弹幕调度，弹幕严格跟随视频帧。 */
+  const [buffering, setBuffering] = useState(true);
+  const bufferingRef = useRef(true);
   const [showUI, setShowUI] = useState(true);
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
@@ -119,7 +122,7 @@ export function KaleidoPlayer({
           // seek 回退或循环：按时间线重放
           vodIdxRef.current = 0;
           effectRef.current?.reset();
-        } else if (!v.paused) {
+        } else if (!v.paused && !bufferingRef.current) {
           while (
             vodIdxRef.current < vodEvents.length &&
             (vodEvents[vodIdxRef.current].videoTimeMs ?? 0) <= nowMs
@@ -152,11 +155,25 @@ export function KaleidoPlayer({
     };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
+    const onBufferStart = () => {
+      bufferingRef.current = true;
+      setBuffering(true);
+    };
+    const onBufferEnd = () => {
+      bufferingRef.current = false;
+      setBuffering(false);
+    };
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("durationchange", onTime);
     video.addEventListener("loadedmetadata", onTime);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
+    video.addEventListener("loadstart", onBufferStart);
+    video.addEventListener("waiting", onBufferStart);
+    video.addEventListener("stalled", onBufferStart);
+    video.addEventListener("playing", onBufferEnd);
+    video.addEventListener("canplay", onBufferEnd);
+    video.addEventListener("seeked", onBufferEnd);
     if (autoPlay) video.play().catch(() => {});
     return () => {
       video.removeEventListener("timeupdate", onTime);
@@ -164,6 +181,12 @@ export function KaleidoPlayer({
       video.removeEventListener("loadedmetadata", onTime);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
+      video.removeEventListener("loadstart", onBufferStart);
+      video.removeEventListener("waiting", onBufferStart);
+      video.removeEventListener("stalled", onBufferStart);
+      video.removeEventListener("playing", onBufferEnd);
+      video.removeEventListener("canplay", onBufferEnd);
+      video.removeEventListener("seeked", onBufferEnd);
     };
   }, [autoPlay]);
 
@@ -250,14 +273,14 @@ export function KaleidoPlayer({
         className="absolute inset-0 h-full w-full object-contain"
       />
 
-      {/* 隔离的 Canvas / WebGL Effect 层 */}
+      {/* 隔离的 Canvas / WebGL Effect 层：视频缓冲时冻结，弹幕严格跟随视频帧 */}
       <div className="absolute inset-0 z-5">
         <EffectSandbox
           ref={effectRef}
           source={effectSource}
           recipe={recipe}
           assets={effectAssets}
-          playing={playing}
+          playing={playing && !buffering}
           onFps={setFps}
           onError={setEffectError}
         />
@@ -325,8 +348,16 @@ export function KaleidoPlayer({
         )}
       </div>
 
+      {/* 缓冲指示：视频加载/卡顿期间弹幕同步冻结 */}
+      {buffering && (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+          <span className="text-xs text-white/70">视频加载中…</span>
+        </div>
+      )}
+
       {/* 暂停大图标 */}
-      {!playing && (
+      {!playing && !buffering && (
         <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
           <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
             <path d="M8 5v14l11-7z" />
