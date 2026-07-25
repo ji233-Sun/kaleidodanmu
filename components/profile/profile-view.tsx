@@ -11,7 +11,7 @@ import {
   type PublishedEffect,
   type UserProfile,
 } from "@/lib/profile";
-import { EffectThumb } from "@/components/effect-thumb";
+import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 import { cn } from "@/lib/cn";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
@@ -238,7 +238,13 @@ export function ProfileView({ name }: { name: string }) {
               className="group overflow-hidden rounded-2xl border border-line bg-card transition-all hover:-translate-y-0.5 hover:border-bili-blue/40 hover:shadow-lg"
             >
               <Link href={`/square/${fx.id}`} className="block" title={`查看「${fx.name}」详情`}>
-                <EffectThumb recipe={fx.recipe} seedText={fx.id} />
+                <EffectRuntimeThumb
+                  effectId={Number(fx.id)}
+                  recipe={fx.recipe}
+                  seedText={fx.id}
+                  channel="published"
+                  maybePackaged
+                />
               </Link>
               <div className="p-4">
                 <Link

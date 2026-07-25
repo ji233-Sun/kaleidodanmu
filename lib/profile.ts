@@ -1,6 +1,7 @@
 import type {
   DerivativeListResponse,
   EffectDetailDto,
+  EffectDto,
   FollowListResponse,
   FollowResponse,
   InteractionKind,
@@ -142,21 +143,15 @@ export async function postInteraction(
 }
 
 /**
- * 广场「使用」时在云端为当前用户创建一份作品副本，返回云端 effect id。
- * 故意不传 forkedFrom：EffectService.create 会对 forkedFrom 原作 remixes +1，
- * 而「使用」的计数已经由 /use 接口（uses +1）记录，不能污染二创计数。
+ * 广场「使用」：服务端为当前用户创建一份私有副本（含已发布版本产物克隆），
+ * 返回副本 EffectDto。服务端不设 forkedFrom，避免污染原作的 remixes 计数。
  */
-export async function postUsedCopy(input: {
-  name: string;
-  prompt: string;
-  recipe: Recipe;
-}): Promise<number> {
-  const slug = `fx-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-  const data = await apiFetch<{ effect: { id: number } }>("/api/effects", {
-    method: "POST",
-    json: { slug, ...input },
-  });
-  return data.effect.id;
+export async function postUsedCopy(effectId: string): Promise<EffectDto> {
+  const data = await apiFetch<{ effect: EffectDto }>(
+    `/api/effects/${encodeURIComponent(effectId)}/use`,
+    { method: "POST" },
+  );
+  return data.effect;
 }
 
 /** 关注 / 取关某用户。 */

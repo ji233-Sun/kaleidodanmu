@@ -35,7 +35,7 @@ export default function SquarePage() {
     return () => { cancelled = true; };
   }, []);
 
-  /** 一键取用：复制作品到当前账号的本地草稿；登录后同步云端，视频编排才能看到。 */
+  /** 一键取用：服务端克隆作品（含已发布版本产物）到当前账号，本地同步一份草稿。 */
   const use = useCallback((id: string) => {
     if (!user) {
       setGate({ action: "使用这个作品" });
@@ -54,9 +54,10 @@ export default function SquarePage() {
       forkedFrom: item.id,
     };
     upsertEffect(copy);
-    void apiUse(id);
-    void postUsedCopy(copy)
-      .then((serverId) => upsertEffect({ ...copy, serverId }))
+    void postUsedCopy(id)
+      .then((dto) =>
+        upsertEffect({ ...copy, serverId: dto.id, packaged: dto.draftVersionId !== null }),
+      )
       .catch(() => {});
     setUsedIds((prev) => new Set(prev).add(id));
   }, [items, user]);
@@ -205,8 +206,4 @@ export default function SquarePage() {
       />
     </main>
   );
-}
-
-async function apiUse(id: string): Promise<void> {
-  await fetch(`/api/effects/${encodeURIComponent(id)}/use`, { method: "POST" });
 }

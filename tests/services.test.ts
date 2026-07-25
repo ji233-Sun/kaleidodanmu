@@ -97,6 +97,57 @@ describe('services', () => {
     })
   })
 
+  describe('EffectService.createUsedCopy', () => {
+    it('克隆已发布产物：副本带 draft 版本、文件可复制读回、原作 uses +1', async () => {
+      const author = await createUser()
+      const user = await createUser()
+      const e = await b.EffectService.create({
+        ownerId: author.id,
+        slug: uniq('uc'),
+        name: 'Packaged',
+        visibility: 'public',
+        prompt: 'prompt',
+        recipe: { symmetry: 6 },
+      })
+      const v = await b.VersionService.create(e.id, author.id, {
+        version: '1.0.0',
+        entry: 'entry.mjs',
+        sdkVersion: '0.1.0',
+        schemaVersion: '2',
+        manifestJson: '{}',
+        code: Buffer.from('export default {}').toString('base64'),
+        assets: [{ path: 'assets/a.png', mime: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') }],
+      })
+      await b.EffectService.publish(e.id, author.id, v.id, 'published')
+
+      const copy = await b.EffectService.createUsedCopy(e.id, user.id)
+      expect(copy.ownerId).toBe(user.id)
+      expect(copy.visibility).toBe('private')
+      expect(copy.name).toBe('Packaged')
+      expect(copy.draftVersionId).not.toBeNull()
+      expect(copy.forkedFrom).toBeNull()
+
+      // 克隆产物可被副本 owner 完整读回（入口 + 资源内容一致）
+      const art = await b.VersionService.getArtifactByChannel(copy.id, 'draft', user.id)
+      expect(art.entry.path).toBe('entry.mjs')
+      expect(Buffer.from(art.entry.data, 'base64').toString()).toContain('export default')
+      expect(art.assets).toHaveLength(1)
+      expect(Buffer.from(art.assets[0].data, 'base64')).toEqual(Buffer.from([1, 2, 3]))
+
+      // 原作计数与产物不受影响
+      expect((await b.EffectService.get(e.id, author.id)).uses).toBe(1)
+      const origin = await b.VersionService.getArtifactByChannel(e.id, 'published', author.id)
+      expect(Buffer.from(origin.entry.data, 'base64').toString()).toContain('export default')
+    })
+
+    it('未发布或私有作品不可取用（404）', async () => {
+      const author = await createUser()
+      const user = await createUser()
+      const e = await b.EffectService.create({ ownerId: author.id, slug: uniq('uc2'), name: 'Private' })
+      await expect(b.EffectService.createUsedCopy(e.id, user.id)).rejects.toMatchObject({ status: 404 })
+    })
+  })
+
   describe('community services', () => {
     it('published + public 作品进入广场，使用次数真实累加', async () => {
       const u = await createUser()

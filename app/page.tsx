@@ -113,7 +113,7 @@ export default function Home() {
         </div>
 
         {/* 入口卡片 */}
-        <div className="mt-16 grid w-full gap-4 sm:grid-cols-2">
+        <div className="mt-16 grid w-full gap-4 sm:grid-cols-3">
           <Link
             href="/mine"
             className="group rounded-2xl border border-line bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:border-bili-pink/50 hover:shadow-lg"
@@ -130,6 +130,15 @@ export default function Home() {
             <p className="text-sm font-semibold text-ink group-hover:text-bili-blue">创作广场 →</p>
             <p className="mt-1.5 text-xs leading-5 text-ink-2">
               看看其他人分享的弹幕玩法，一键取用，或在原作基础上二次创作。
+            </p>
+          </Link>
+          <Link
+            href="/get-started"
+            className="group rounded-2xl border border-line bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:border-bili-purple/50 hover:shadow-lg"
+          >
+            <p className="text-sm font-semibold text-ink group-hover:text-bili-purple">本地开发 →</p>
+            <p className="mt-1.5 text-xs leading-5 text-ink-2">
+              用 kdanmu CLI 在本地开发、调试弹幕效果包，一键上传到你的作品库。
             </p>
           </Link>
         </div>

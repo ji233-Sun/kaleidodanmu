@@ -97,30 +97,33 @@ export function EffectDetail({ id }: { id: string }) {
     };
   }, [effect]);
 
-  /** 一键取用：复制作品（与广场卡片行为一致）；登录后同步云端，视频编排才能看到。 */
+  /** 一键取用：复制作品；服务端连同已发布版本产物一起克隆，本地用权威配方与效果包标记。 */
   const use = useCallback(() => {
     if (!effect) return;
     if (!user) {
       setGate({ action: "使用这个作品" });
       return;
     }
+    const recipe = source?.recipe ?? effect.recipe;
     const copy: KaleidoEffect = {
       id: newEffectId(),
       name: effect.name,
       prompt: effect.prompt,
-      recipe: { ...effect.recipe, palette: [...effect.recipe.palette] },
+      recipe: { ...recipe, palette: [...recipe.palette] },
       version: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       forkedFrom: effect.id,
+      packaged: source?.packaged ?? false,
     };
     upsertEffect(copy);
-    void fetch(`/api/effects/${encodeURIComponent(effect.id)}/use`, { method: "POST" });
-    void postUsedCopy(copy)
-      .then((serverId) => upsertEffect({ ...copy, serverId }))
+    void postUsedCopy(effect.id)
+      .then((dto) =>
+        upsertEffect({ ...copy, serverId: dto.id, packaged: dto.draftVersionId !== null }),
+      )
       .catch(() => {});
     setUsed(true);
-  }, [effect, user]);
+  }, [effect, source, user]);
 
   /** 点赞 / 投币 / 收藏：乐观更新（投币不可撤销，对齐 B 站行为） */
   const interact = useCallback(

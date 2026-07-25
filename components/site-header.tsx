@@ -10,7 +10,7 @@ const LINKS = [
   { href: "/composer", label: "视频编排", guest: false },
   { href: "/mine", label: "我的作品", guest: false },
   { href: "/square", label: "创作广场", guest: true },
-  { href: "/get-started", label: "开始使用", guest: true },
+  { href: "/get-started", label: "本地开发", guest: true },
 ];
 
 export function SiteHeader() {

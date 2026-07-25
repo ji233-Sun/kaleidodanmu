@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PublishedEffect } from "@/lib/profile";
-import { EffectThumb } from "@/components/effect-thumb";
+import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 
 function fmtNum(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -31,7 +31,13 @@ export function MyEffectGrid({
           href={`/square/${fx.id}`}
           className="group overflow-hidden rounded-2xl border border-line bg-card transition-all hover:-translate-y-0.5 hover:border-bili-blue/40 hover:shadow-lg"
         >
-          <EffectThumb recipe={fx.recipe} seedText={fx.id} />
+          <EffectRuntimeThumb
+            effectId={Number(fx.id)}
+            recipe={fx.recipe}
+            seedText={fx.id}
+            channel="published"
+            maybePackaged
+          />
           <div className="p-4">
             <p className="truncate text-sm font-semibold text-ink group-hover:text-bili-pink">
               {fx.name}
