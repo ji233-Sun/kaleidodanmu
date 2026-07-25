@@ -12,7 +12,7 @@ import {
   subscribeEffects,
   upsertEffect,
 } from "@/lib/store";
-import { EffectThumb } from "@/components/effect-thumb";
+import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 import { MeSubnav } from "@/components/me/me-subnav";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
@@ -164,7 +164,14 @@ export default function MinePage() {
                 className="block w-full cursor-pointer"
                 title="预览并继续迭代"
               >
-                <EffectThumb recipe={fx.recipe} seedText={fx.id} />
+                <EffectRuntimeThumb
+                  effectId={fx.serverId ?? 0}
+                  recipe={fx.recipe}
+                  seedText={fx.id}
+                  channel="draft"
+                  maybePackaged={Boolean(fx.serverId && fx.packaged)}
+                  entrySource={fx.entrySource}
+                />
               </button>
               <div className="p-4">
                 <div className="flex items-center gap-2">

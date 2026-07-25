@@ -10,6 +10,7 @@ import {
   type DerivativeWork,
   type PublishedEffect,
 } from "@/lib/profile";
+import { fetchEffectSource, type ResolvedEffectSource } from "@/lib/effect-source";
 import { newEffectId, upsertEffect } from "@/lib/store";
 import { hashString } from "@/lib/random";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
@@ -48,6 +49,7 @@ export function EffectDetail({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useSession();
   const [effect, setEffect] = useState<PublishedEffect | null>(null);
+  const [source, setSource] = useState<ResolvedEffectSource | null>(null);
   const [loading, setLoading] = useState(true);
   const [derivatives, setDerivatives] = useState<DerivativeWork[] | null>(null);
   const [used, setUsed] = useState(false);
@@ -72,6 +74,23 @@ export function EffectDetail({ id }: { id: string }) {
       cancelled = true;
     };
   }, [id]);
+
+  // 解析作品的真实可运行源码（已发布版本产物）；无产物时回退内置引擎
+  useEffect(() => {
+    if (!effect) return;
+    let cancelled = false;
+    fetchEffectSource({
+      effectId: Number(effect.id),
+      recipe: effect.recipe,
+      channel: "published",
+      maybePackaged: true,
+    })
+      .then((resolved) => !cancelled && setSource(resolved))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [effect]);
 
   /** 一键取用：复制作品（与广场卡片行为一致）。 */
   const use = useCallback(() => {
@@ -177,7 +196,13 @@ export function EffectDetail({ id }: { id: string }) {
         {/* 左栏：预览 + 二创列表 */}
         <div className="min-w-0">
           <div className="overflow-hidden rounded-2xl border border-line">
-            <KaleidoPlayer recipe={effect.recipe} seed={hashString(effect.id)} title={effect.name} />
+            <KaleidoPlayer
+              recipe={source?.recipe ?? effect.recipe}
+              effectSource={source?.source}
+              effectAssets={source?.assets}
+              seed={hashString(effect.id)}
+              title={effect.name}
+            />
           </div>
 
           {/* 二创列表 */}

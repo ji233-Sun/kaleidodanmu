@@ -13,8 +13,8 @@ export type {
 
 import { LIMITS } from "@/types/manifest";
 
-/** 允许的裸依赖说明符；其余（相对路径、URL、其他包）一律拒绝。 */
-export const ALLOWED_SPECIFIERS = ["three", "gsap", "kdanmu-sdk"] as const;
+/** 允许的裸依赖说明符；其余（相对路径、URL、其他包）一律拒绝。@kaleido/sdk 为旧包名，兼容历史产物。 */
+export const ALLOWED_SPECIFIERS = ["three", "gsap", "kdanmu-sdk", "@kaleido/sdk"] as const;
 
 const FORBIDDEN_SOURCE = [
   { pattern: /\bfetch\s*\(/, label: "fetch" },
@@ -66,9 +66,12 @@ export function validateEffectSource(source: string): void {
  */
 export function rewriteEffectImports(source: string, vendor: Record<string, string>): string {
   return source.replace(
-    /\b(from|import)(\s*)(["'])(three|gsap|kdanmu-sdk)\3/g,
-    (_full, keyword: string, ws: string, quote: string, name: string) =>
-      `${keyword}${ws}${quote}${vendor[name] ?? name}${quote}`,
+    /\b(from|import)(\s*)(["'])(three|gsap|kdanmu-sdk|@kaleido\/sdk)\3/g,
+    (_full, keyword: string, ws: string, quote: string, name: string) => {
+      // 旧包名归一到 kdanmu-sdk 的 vendor 模块
+      const key = name === "@kaleido/sdk" ? "kdanmu-sdk" : name;
+      return `${keyword}${ws}${quote}${vendor[key] ?? name}${quote}`;
+    },
   );
 }
 

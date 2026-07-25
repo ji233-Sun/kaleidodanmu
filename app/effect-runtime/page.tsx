@@ -49,12 +49,26 @@ function base64ToBytes(base64: string): Uint8Array {
 }
 
 export default function EffectRuntimePage() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
     disableNetworkGlobals();
+
+    // 每次 load 换上全新 canvas：canvas 一旦创建过某类 context（2d / webgl），
+    // 再取另一类只能得到 null。复用旧 canvas 会让不同类型 Effect 互相卡死。
+    let canvas: HTMLCanvasElement;
+    const freshCanvas = () => {
+      const next = document.createElement("canvas");
+      next.className = "block h-full w-full bg-transparent";
+      canvas.replaceWith(next);
+      canvas = next;
+      return next;
+    };
+    canvas = document.createElement("canvas");
+    canvas.className = "block h-full w-full bg-transparent";
+    container.appendChild(canvas);
 
     // 用 document 的真实 URL 组装绝对 vendor 地址：沙箱 iframe 为不透明源，location.origin 可能是
     // "null"，但 protocol/host 仍是真实值。vendor 模块由 next.config 的 ACAO 头允许跨源加载。
@@ -175,6 +189,7 @@ export default function EffectRuntimePage() {
         if (!definition || typeof definition.setup !== "function") {
           throw new Error("Effect 默认导出必须实现 setup()");
         }
+        bindCanvas(freshCanvas());
         effect = definition.setup({ canvas, recipe: command.recipe, THREE: threeMod!, gsap: gsapMod! });
         if (
           !effect ||
@@ -229,7 +244,6 @@ export default function EffectRuntimePage() {
     };
 
     const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
     const pointerType = (type: "down" | "move" | "up" | "cancel") =>
       (event: PointerEvent) => {
         if (!effect?.onPointer) return;
@@ -254,10 +268,16 @@ export default function EffectRuntimePage() {
     const onPointerMove = pointerType("move");
     const onPointerUp = pointerType("up");
     const onPointerCancel = pointerType("cancel");
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup", onPointerUp);
-    canvas.addEventListener("pointercancel", onPointerCancel);
+    // 每次换新 canvas 都要重新挂观察器与指针监听
+    const bindCanvas = (target: HTMLCanvasElement) => {
+      observer.disconnect();
+      observer.observe(target);
+      target.addEventListener("pointerdown", onPointerDown);
+      target.addEventListener("pointermove", onPointerMove);
+      target.addEventListener("pointerup", onPointerUp);
+      target.addEventListener("pointercancel", onPointerCancel);
+    };
+    bindCanvas(canvas);
     window.addEventListener("message", onConnect);
     // 主动向宿主宣告就绪：父页面的 connect 若先于本页挂载而丢失，可凭 boot 重连。
     window.parent.postMessage({ type: "kaleido:boot" }, "*");
@@ -277,7 +297,7 @@ export default function EffectRuntimePage() {
   return (
     <>
       <style>{`html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; } body > header { display: none !important; }`}</style>
-      <canvas ref={canvasRef} className="fixed inset-0 block h-full w-full bg-transparent" />
+      <div ref={containerRef} className="fixed inset-0" />
     </>
   );
 }

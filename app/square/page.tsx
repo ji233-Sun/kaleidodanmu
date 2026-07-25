@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { fetchSquare, postInteraction, type PublishedEffect } from "@/lib/profile";
 import { newEffectId, upsertEffect } from "@/lib/store";
 import { useSession } from "@/lib/session";
-import { EffectThumb } from "@/components/effect-thumb";
+import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 import { cn } from "@/lib/cn";
 
 function fmtNum(n: number) {
@@ -95,7 +95,13 @@ export default function SquarePage() {
               className="group overflow-hidden rounded-2xl border border-line bg-card transition-all hover:-translate-y-0.5 hover:border-bili-blue/40 hover:shadow-lg"
             >
               <Link href={`/square/${item.id}`} className="block" title={`查看「${item.name}」详情`}>
-                <EffectThumb recipe={item.recipe} seedText={item.id} />
+                <EffectRuntimeThumb
+                  effectId={Number(item.id)}
+                  recipe={item.recipe}
+                  seedText={item.id}
+                  channel="published"
+                  maybePackaged
+                />
               </Link>
               <div className="p-4">
                 <div className="flex items-center gap-2">

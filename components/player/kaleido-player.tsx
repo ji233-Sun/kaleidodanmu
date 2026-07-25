@@ -9,6 +9,7 @@ import { EffectSandbox, type EffectSandboxHandle } from "@/components/player/eff
 import { cn } from "@/lib/cn";
 
 const SPEEDS = [2, 1.5, 1.25, 1, 0.75, 0.5];
+const DEMO_LOOP_VIDEO = "https://kdanmu.oss-cn-beijing.aliyuncs.com/demo-loop.mp4";
 
 function fmt(s: number) {
   if (!isFinite(s)) s = 0;
@@ -240,7 +241,7 @@ export function KaleidoPlayer({
     >
       <video
         ref={videoRef}
-        src="/demo-loop.mp4"
+        src={DEMO_LOOP_VIDEO}
         loop
         playsInline
         preload="auto"
