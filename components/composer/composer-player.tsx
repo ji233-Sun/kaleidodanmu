@@ -24,7 +24,7 @@ import type { ComposerClip } from "./timeline";
 import { cn } from "@/lib/cn";
 
 const COMPOSER_DEMO_VIDEO =
-  "https://kdanmu.oss-cn-beijing.aliyuncs.com/composer-demo.mp4";
+  "https://kdanmu.pvzflare.com/composer-demo.mp4";
 
 export interface ComposerPlayerHandle {
   seek(ms: number): void;
