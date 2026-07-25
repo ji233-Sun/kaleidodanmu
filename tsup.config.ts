@@ -12,8 +12,8 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   banner: { js: '#!/usr/bin/env node' },
-  // commander/vue-tui/vue/three 全部打进产物，发布的 CLI 包不依赖宿主机 node_modules
-  noExternal: ['commander', '@simon_he/vue-tui', 'vue', 'three'],
+  // commander/zod/vue-tui/vue/three 全部打进产物，发布的 CLI 包不依赖宿主机 node_modules
+  noExternal: ['commander', 'zod', '@simon_he/vue-tui', 'vue', 'three'],
   async onSuccess() {
     const { cpSync, rmSync, readFileSync, writeFileSync } = await import('node:fs')
     const { basename } = await import('node:path')
