@@ -19,14 +19,22 @@ function toThinkingLevel(value: string): ThinkingLevel | undefined {
   return value === 'low' || value === 'medium' || value === 'high' ? value : undefined
 }
 
+/** 密文与当前 sessionSecret 不匹配（密钥轮换 / 跨环境搬库）时解密会抛错，预览降级为无尾号。 */
+function apiKeyPreview(apiKeyEncrypted: string): string {
+  try {
+    return `••••${decryptSecret(apiKeyEncrypted).slice(-4)}`
+  } catch {
+    return '••••'
+  }
+}
+
 function toDto(row: LlmConfig): LlmConfigDto {
-  const apiKey = decryptSecret(row.apiKeyEncrypted)
   const thinking = toThinkingLevel(row.thinking)
   return {
     provider: row.provider as LlmProvider,
     baseUrl: row.baseUrl,
     model: row.model,
-    apiKeyPreview: `••••${apiKey.slice(-4)}`,
+    apiKeyPreview: apiKeyPreview(row.apiKeyEncrypted),
     ...(thinking ? { thinking } : {}),
   }
 }
@@ -61,11 +69,21 @@ export const LlmConfigService = {
   async resolveForUser(userId: number): Promise<ResolvedLlmConfig | null> {
     const row = await LlmConfigRepository.findByUser(userId)
     if (!row) return null
+    let apiKey: string
+    try {
+      apiKey = decryptSecret(row.apiKeyEncrypted)
+    } catch {
+      throw new HttpError(
+        400,
+        'llm_config_undecryptable',
+        '已保存的 API Key 无法解密（服务密钥可能已变更），请到「设置」重新保存',
+      )
+    }
     const thinking = toThinkingLevel(row.thinking)
     return {
       provider: row.provider as LlmProvider,
       baseUrl: row.baseUrl,
-      apiKey: decryptSecret(row.apiKeyEncrypted),
+      apiKey,
       model: row.model,
       ...(thinking ? { thinking } : {}),
     }

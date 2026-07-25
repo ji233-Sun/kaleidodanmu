@@ -53,6 +53,7 @@ export function EffectDetail({ id }: { id: string }) {
   const { user } = useSession();
   const [effect, setEffect] = useState<PublishedEffect | null>(null);
   const [source, setSource] = useState<ResolvedEffectSource | null>(null);
+  const [sourceReady, setSourceReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [derivatives, setDerivatives] = useState<DerivativeWork[] | null>(null);
   const [used, setUsed] = useState(false);
@@ -80,7 +81,8 @@ export function EffectDetail({ id }: { id: string }) {
     };
   }, [id]);
 
-  // 解析作品的真实可运行源码（已发布版本产物）；无产物时回退内置引擎
+  // 解析作品的真实可运行源码（已发布版本产物）；无产物时回退内置引擎。
+  // sourceReady 之前不渲染播放器，避免用户提前播放看到默认引擎。
   useEffect(() => {
     if (!effect) return;
     let cancelled = false;
@@ -91,7 +93,8 @@ export function EffectDetail({ id }: { id: string }) {
       maybePackaged: true,
     })
       .then((resolved) => !cancelled && setSource(resolved))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => !cancelled && setSourceReady(true));
     return () => {
       cancelled = true;
     };
@@ -212,13 +215,20 @@ export function EffectDetail({ id }: { id: string }) {
         {/* 左栏：预览 + 二创列表 */}
         <div className="min-w-0">
           <div className="overflow-hidden rounded-2xl border border-line">
-            <KaleidoPlayer
-              recipe={source?.recipe ?? effect.recipe}
-              effectSource={source?.source}
-              effectAssets={source?.assets}
-              seed={hashString(effect.id)}
-              title={effect.name}
-            />
+            {!sourceReady ? (
+              <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-[#0b0d12]">
+                <Spinner />
+                <p className="text-sm text-white/60">加载作品源码中…</p>
+              </div>
+            ) : (
+              <KaleidoPlayer
+                recipe={source?.recipe ?? effect.recipe}
+                effectSource={source?.source}
+                effectAssets={source?.assets}
+                seed={hashString(effect.id)}
+                title={effect.name}
+              />
+            )}
           </div>
 
           {/* 二创列表 */}

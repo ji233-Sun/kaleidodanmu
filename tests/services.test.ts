@@ -431,5 +431,23 @@ describe('services', () => {
       await b.LlmConfigService.upsert(u1.id, { provider: 'openai-chat', apiKey: 'sk-u1-key-cccc', model: 'm1' })
       expect(await b.LlmConfigService.getDto(u2.id)).toBe(null)
     })
+
+    it('密文无法解密时 getDto 不炸（preview 无尾号），resolveForUser 抛可操作的 400', async () => {
+      const u = await createUser()
+      // 模拟密钥轮换 / 跨环境搬库后留下的坏密文
+      await b.LlmConfigRepository.upsert(u.id, {
+        provider: 'openai-chat',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKeyEncrypted: 'deadbeef:deadbeef:deadbeef',
+        model: 'gpt-4o-mini',
+        thinking: '',
+      })
+      const dto = await b.LlmConfigService.getDto(u.id)
+      expect(dto?.apiKeyPreview).toBe('••••')
+      await expect(b.LlmConfigService.resolveForUser(u.id)).rejects.toMatchObject({
+        status: 400,
+        code: 'llm_config_undecryptable',
+      })
+    })
   })
 })
