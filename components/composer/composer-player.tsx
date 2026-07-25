@@ -35,6 +35,8 @@ interface ComposerPlayerProps {
   mode: ComposerMode;
   seed: number;
   clips: ComposerClip[];
+  /** 直播模式下选中的万花筒（实时生效）；null 表示使用经典默认弹幕。 */
+  liveEffectId: number | null;
   /** 无生效片段时沙箱的占位形态（此时弹幕走经典弹幕层，不发射进沙箱）。 */
   defaultSource: ResolvedEffectSource;
   /** 解析片段上万花筒的真实可运行形态；尚未加载完成时返回 null。 */
@@ -47,8 +49,8 @@ interface ComposerPlayerProps {
 
 /**
  * 视频编排播放器：composer-demo 演示视频 + 特效沙箱 + 经典弹幕层。
- * 视频模式一次性拉全量弹幕按时间轴调度；直播模式走 SSE 实时帧、视频循环播放。
- * 播放头落在万花筒片段内 → 弹幕发射进对应特效；片段外 → 经典默认弹幕。
+ * 视频模式一次性拉全量弹幕按时间轴调度，片段内弹幕进特效、片段外走经典弹幕；
+ * 直播模式走 SSE 实时帧、视频循环播放，选中的万花筒实时生效（未选中则经典弹幕）。
  */
 export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerProps>(
   function ComposerPlayer(
@@ -56,6 +58,7 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       mode,
       seed,
       clips,
+      liveEffectId,
       defaultSource,
       resolveEffect,
       onTime,
@@ -114,9 +117,9 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       }
     }, []);
 
-    /** 按当前播放头所在片段路由弹幕：片段内 → 特效层，片段外 → 经典默认弹幕。 */
-    const emitDanmaku = useCallback((event: DanmakuEvent, inSegment: boolean) => {
-      if (inSegment) sandboxRef.current?.emit(event);
+    /** 按当前生效目标路由弹幕：true → 特效层，false → 经典默认弹幕。 */
+    const emitDanmaku = useCallback((event: DanmakuEvent, useEffect: boolean) => {
+      if (useEffect) sandboxRef.current?.emit(event);
       else classicRef.current?.emit(event);
     }, []);
 
@@ -130,6 +133,22 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       if (resolved) setActiveSource(resolved);
     }, [resolveEffect]);
 
+    /* ---------- 直播模式：选中的万花筒实时生效，未选中走经典默认弹幕 ---------- */
+    const liveResolved =
+      mode === "live" && liveEffectId != null ? resolveEffect(liveEffectId) : null;
+    const liveEffectRef = useRef<ResolvedEffectSource | null>(null);
+    liveEffectRef.current = liveResolved;
+
+    useEffect(() => {
+      if (mode !== "live") return;
+      // 进入直播或切换选中：清场并加载对应特效；同时清掉视频模式的片段状态
+      activeIdRef.current = null;
+      sandboxRef.current?.reset();
+      classicRef.current?.reset();
+      onActiveClipChangeRef.current(null);
+      setActiveSource(liveResolved ?? defaultSource);
+    }, [mode, liveResolved, defaultSource]);
+
     /* ---------- 调度循环 ---------- */
     useEffect(() => {
       let raf = 0;
@@ -138,10 +157,10 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
         const v = videoRef.current;
         if (!v) return;
         const nowMs = v.currentTime * 1000;
-        const seg = segmentAt(nowMs);
-        applySegment(seg);
 
         if (modeRef.current === "video") {
+          const seg = segmentAt(nowMs);
+          applySegment(seg);
           const events = vodEventsRef.current;
           const last = vodLastRef.current;
           if (nowMs < last - 100) {
@@ -220,15 +239,14 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
         try {
           const event = liveFrameToEvent(JSON.parse(message.data));
           if (!event) return;
-          const v = videoRef.current;
-          if (!v) return;
-          emitDanmaku(event, segmentAt(v.currentTime * 1000) !== null);
+          // 选中了万花筒 → 特效层；未选中 → 经典默认弹幕
+          emitDanmaku(event, liveEffectRef.current !== null);
         } catch {
           // 忽略异常帧，保持连接
         }
       };
       return () => stream.close();
-    }, [mode, seed, segmentAt, emitDanmaku]);
+    }, [mode, seed, emitDanmaku]);
 
     /* ---------- 视频元素事件 ---------- */
     useEffect(() => {

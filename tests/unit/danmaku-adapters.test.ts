@@ -35,4 +35,19 @@ describe('danmaku API adapters', () => {
     })
     expect(event).toMatchObject({ id: 'live-9', source: 'live', text: 'hello', mode: 'scroll' })
   })
+
+  it('mixes consecutive live sequences into spatially distributed seeds', () => {
+    const seeds = Array.from({ length: 16 }, (_, index) => {
+      const seq = index + 1
+      const event = liveFrameToEvent({
+        op: 5,
+        cmd: 'DANMU_MSG',
+        info: [[0, 1, 25, 0xffffff, 'hello', 0, 0, 0, 0, seq], 'hello', [1]],
+      })
+      return event?.seed
+    })
+
+    expect(seeds.every((seed) => typeof seed === 'number')).toBe(true)
+    expect(new Set(seeds.map((seed) => seed! % 400)).size).toBeGreaterThan(12)
+  })
 })

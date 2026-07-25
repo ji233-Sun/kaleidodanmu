@@ -27,6 +27,8 @@ interface EffectRuntimeThumbProps {
   maybePackaged: boolean;
   /** 网页草稿快照里的自定义入口（已知时直接给）。 */
   entrySource?: string;
+  /** 外部已解析好的来源：传入则跳过内部拉取（null = 仍在解析，显示占位）。 */
+  resolved?: ResolvedEffectSource | null;
 }
 
 /**
@@ -40,15 +42,17 @@ export function EffectRuntimeThumb({
   channel,
   maybePackaged,
   entrySource,
+  resolved: resolvedProp,
 }: EffectRuntimeThumbProps) {
-  const [resolved, setResolved] = useState<ResolvedEffectSource | null>(null);
+  const [innerResolved, setInnerResolved] = useState<ResolvedEffectSource | null>(null);
   const sandboxRef = useRef<EffectSandboxHandle>(null);
 
   useEffect(() => {
+    if (resolvedProp !== undefined) return;
     let cancelled = false;
     fetchEffectSource({ effectId, recipe, channel, maybePackaged, entrySource })
       .then((result) => {
-        if (!cancelled) setResolved(result);
+        if (!cancelled) setInnerResolved(result);
       })
       .catch(() => {});
     return () => {
@@ -56,7 +60,9 @@ export function EffectRuntimeThumb({
     };
     // recipe / entrySource 随首帧确定，不作为依赖反复拉取
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectId, channel, maybePackaged]);
+  }, [effectId, channel, maybePackaged, resolvedProp]);
+
+  const resolved = resolvedProp !== undefined ? resolvedProp : innerResolved;
 
   useEffect(() => {
     if (!resolved) return;
@@ -83,13 +89,16 @@ export function EffectRuntimeThumb({
 
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-[#0b0d12]">
-      <EffectSandbox
-        ref={sandboxRef}
-        source={resolved.source}
-        recipe={resolved.recipe}
-        assets={resolved.assets}
-        playing
-      />
+      {/* 沙箱按 4 倍逻辑尺寸渲染再缩回：默认引擎的轨道半径在小视口下会飞出画面 */}
+      <div className="relative h-[400%] w-[400%] origin-top-left scale-25">
+        <EffectSandbox
+          ref={sandboxRef}
+          source={resolved.source}
+          recipe={resolved.recipe}
+          assets={resolved.assets}
+          playing
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { DanmakuEvent } from "./types";
 import type { LiveFrame, VodDanmakuElem } from "@/types";
-import { mulberry32, pick } from "./random";
+import { hashString, mulberry32, pick } from "./random";
 
 /** 预置弹幕语料：接入后端后替换为真实弹幕流 */
 const TEXTS = [
@@ -58,7 +58,8 @@ export function liveFrameToEvent(frame: LiveFrame): DanmakuEvent | null {
     color: typeof meta[3] === "number" ? meta[3] : 0xffffff,
     fontSize: typeof meta[2] === "number" ? meta[2] : 25,
     weight: 0,
-    seed: seq >>> 0,
+    // 直播序号通常连续递增，直接作为 seed 会让 `seed % height` 只产生约 1px 的纵向差。
+    seed: hashString(`live:${seq}`),
   };
 }
 

@@ -21,7 +21,7 @@ import {
   MIN_CLIP_MS,
   type ComposerClip,
 } from "@/components/composer/timeline";
-import { EffectThumb } from "@/components/effect-thumb";
+import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 import { Spinner } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -40,6 +40,8 @@ export default function ComposerPage() {
   const [clips, setClips] = useState<ComposerClip[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
+  /** 直播模式下选中的万花筒（实时生效）；null = 经典默认弹幕 */
+  const [liveEffectId, setLiveEffectId] = useState<number | null>(null);
   const [currentMs, setCurrentMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -224,11 +226,15 @@ export default function ComposerPage() {
   }, [selectedId, deleteClip]);
 
   const activeEffectName = useMemo(() => {
+    if (mode === "live") {
+      if (liveEffectId == null) return null;
+      return effects?.find((fx) => fx.id === liveEffectId)?.name ?? null;
+    }
     if (!activeClipId) return null;
     const clip = clips.find((c) => c.id === activeClipId);
     if (!clip) return null;
     return effects?.find((fx) => fx.id === clip.effectId)?.name ?? `#${clip.effectId}`;
-  }, [activeClipId, clips, effects]);
+  }, [mode, liveEffectId, activeClipId, clips, effects]);
 
   /* ---------- 会话态 ---------- */
   if (sessionLoading) {
@@ -261,7 +267,7 @@ export default function ComposerPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">视频编排</h1>
           <p className="mt-1 text-sm text-ink-2">
-            Demo 演示：把万花筒铺到时间轴上，片段范围内弹幕才会触发特效；同一时刻只能有一种万花筒。
+            Demo 演示：视频模式把万花筒铺到时间轴（片段内生效，不支持叠加）；直播模式实时弹幕循环播放，选中一个万花筒立即生效。
           </p>
         </div>
         <div className="flex overflow-hidden rounded-lg border border-line text-sm">
@@ -286,7 +292,9 @@ export default function ComposerPage() {
         {/* 素材库：用户名下的全部万花筒 */}
         <aside className="flex max-h-[540px] flex-col rounded-2xl border border-line bg-card p-4">
           <h2 className="text-sm font-semibold text-ink">我的万花筒</h2>
-          <p className="mt-0.5 text-xs text-ink-3">点击「插入」铺到播放头位置</p>
+          <p className="mt-0.5 text-xs text-ink-3">
+            {mode === "video" ? "点击「插入」铺到播放头位置" : "选择一个万花筒实时生效，再点一次取消"}
+          </p>
           {loadError && <p className="mt-3 text-xs text-error">{loadError}</p>}
           {effects === null ? (
             <div className="flex flex-1 items-center justify-center py-10">
@@ -304,12 +312,23 @@ export default function ComposerPage() {
               {effects.map((fx) => (
                 <li
                   key={fx.id}
-                  className="flex items-center gap-2.5 rounded-xl border border-line p-2 transition-colors hover:border-bili-pink/40"
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-xl border p-2 transition-colors",
+                    mode === "live" && liveEffectId === fx.id
+                      ? "border-bili-blue bg-bili-blue-light"
+                      : "border-line hover:border-bili-pink/40",
+                  )}
                 >
                   <div className="w-20 flex-none overflow-hidden rounded-lg">
-                    <EffectThumb
+                    <EffectRuntimeThumb
+                      effectId={fx.id}
                       recipe={sources.get(fx.id)?.recipe ?? resolveEffectRecipe(fx)}
                       seedText={String(fx.id)}
+                      channel="draft"
+                      maybePackaged={Boolean(
+                        fx.draftVersionId ?? fx.stagingVersionId ?? fx.publishedVersionId,
+                      )}
+                      resolved={sources.get(fx.id) ?? null}
                     />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -320,12 +339,28 @@ export default function ComposerPage() {
                       {fx.visibility === "public" ? "已公开" : "私有"}
                     </p>
                   </div>
-                  <button
-                    onClick={() => insertClip(fx.id)}
-                    className="flex-none rounded-md bg-bili-pink px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-bili-pink-hover"
-                  >
-                    插入
-                  </button>
+                  {mode === "video" ? (
+                    <button
+                      onClick={() => insertClip(fx.id)}
+                      className="flex-none rounded-md bg-bili-pink px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-bili-pink-hover"
+                    >
+                      插入
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setLiveEffectId((prev) => (prev === fx.id ? null : fx.id))
+                      }
+                      className={cn(
+                        "flex-none rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                        liveEffectId === fx.id
+                          ? "bg-bili-blue text-white"
+                          : "bg-bili-pink text-white hover:bg-bili-pink-hover",
+                      )}
+                    >
+                      {liveEffectId === fx.id ? "✓ 生效中" : "应用"}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -339,6 +374,7 @@ export default function ComposerPage() {
             mode={mode}
             seed={user.id}
             clips={clips}
+            liveEffectId={liveEffectId}
             defaultSource={defaultSource}
             resolveEffect={resolveEffect}
             onTime={handleTime}
@@ -359,24 +395,26 @@ export default function ComposerPage() {
         </div>
       </div>
 
-      {hint && <p className="mt-4 text-xs text-warning">{hint}</p>}
+      {hint && mode === "video" && <p className="mt-4 text-xs text-warning">{hint}</p>}
 
-      {/* 时间轴 */}
-      <div className="mt-4">
-        <ComposerTimeline
-          durationMs={durationMs}
-          currentMs={currentMs}
-          playing={playing}
-          clips={clips}
-          effects={effects ?? []}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onSeek={(ms) => playerRef.current?.seek(ms)}
-          onMove={moveClip}
-          onResize={resizeClip}
-          onDelete={deleteClip}
-        />
-      </div>
+      {/* 时间轴（仅视频模式；直播模式为实时弹幕循环播放，无时间轴） */}
+      {mode === "video" && (
+        <div className="mt-4">
+          <ComposerTimeline
+            durationMs={durationMs}
+            currentMs={currentMs}
+            playing={playing}
+            clips={clips}
+            effects={effects ?? []}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onSeek={(ms) => playerRef.current?.seek(ms)}
+            onMove={moveClip}
+            onResize={resizeClip}
+            onDelete={deleteClip}
+          />
+        </div>
+      )}
     </main>
   );
 }
