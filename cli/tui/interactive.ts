@@ -12,12 +12,13 @@ import {
   installTerminalCleanup,
 } from '@simon_he/vue-tui/cli'
 import { login } from '../auth'
-import { createClient } from '../api'
+import { createClient, type MyProfile } from '../api'
 import { buildCmd, devCmd, initCmd, publishCmd, uploadCmd, validateCmd } from '../commands'
 import { loadCredentials, resolveBaseUrl } from '../config'
 import { hasManifest } from '../project'
 import { buildOptions, computeLayout, HomeApp, type HomeAction, type HomeState } from './home-app'
 import { PixelTextAnimation } from './pixel-text-animation'
+import { CommunityApp, computeCommunityLayout, DanmakuStrip } from './community-app'
 
 const FRAME_MS = 50
 
@@ -139,6 +140,93 @@ function mountHome(state: HomeState, version: string): Promise<HomeAction> {
   })
 }
 
+/** 挂载「我的弹幕社区状态」TUI：资料/总览/作品面板 + 顶部滚动弹幕条，按 q/Esc 返回。 */
+function mountCommunity(profile: MyProfile): Promise<void> {
+  return new Promise((resolvePromise) => {
+    let settled = false
+    let timer: ReturnType<typeof setInterval> | null = null
+    let terminalCleanup: { uninstall: () => void } | null = null
+    let driver: { dispose: () => void } | null = null
+
+    const cleanup = () => {
+      if (timer) clearInterval(timer)
+      terminalCleanup?.uninstall()
+      driver?.dispose()
+      renderer.dispose()
+      app.dispose()
+    }
+    const finish = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolvePromise()
+    }
+
+    const cols = process.stdout.columns || 80
+    const rows = process.stdout.rows || 24
+    const strip = new DanmakuStrip(
+      profile.effects.map((e) => e.name),
+      Date.now() & 0xffffffff,
+    )
+
+    const app = createTerminalApp({
+      cols,
+      rows,
+      component: CommunityApp,
+      props: { cols, rows, profile },
+      defaultStyle: { fg: 'whiteBright' },
+    })
+    app.mount()
+
+    const renderer = createStdoutRenderer(app.terminal, {
+      output: process.stdout,
+      hideCursor: true,
+      colorMode: 'auto',
+    })
+    app.scheduler.flush()
+
+    // 弹幕条：每帧按当前尺寸重算内容区，fill 清空后 put 本帧字符
+    timer = setInterval(() => {
+      try {
+        const size = app.terminal.size()
+        const layout = computeCommunityLayout(size.cols, size.rows)
+        if (!layout.strip) return
+        const { x, y, w, h } = layout.strip
+        const ops = strip.frame(w, h)
+        app.terminal.batch(() => {
+          app.terminal.fill(x, y, w, h, ' ')
+          for (const op of ops) app.terminal.put(x + op.x, y + op.y, op.ch, { fg: op.fg })
+        })
+        app.terminal.commit()
+      } catch {
+        // 尺寸突变等瞬时异常跳过本帧
+      }
+    }, FRAME_MS)
+
+    terminalCleanup = installTerminalCleanup(cleanup, { signalPolicy: 'reraise' })
+    driver = createStdinDriver({
+      dispatch(event) {
+        if (event.type === 'keydown' && event.ctrlKey && (event.key === 'c' || event.key === 'C')) {
+          finish()
+          return true
+        }
+        if (
+          event.type === 'keydown' &&
+          (event.key === 'q' || event.key === 'Q' || event.key === 'Escape')
+        ) {
+          finish()
+          return true
+        }
+        const prevented = app.events.dispatch(event)
+        app.scheduler.flush()
+        return prevented
+      },
+      enableMouse: false,
+      onExit: () => finish(),
+    })
+  })
+}
+
 function promptLine(question: string): Promise<string> {
   // stdin driver dispose 时会 unref stdin，重新 ref 否则事件轮空进程直接退出
   process.stdin.ref()
@@ -207,6 +295,12 @@ async function runAction(action: HomeAction): Promise<void> {
         console.log(`共 ${effects.length} 个作品：`)
         for (const e of effects) console.log(`  #${e.id}  ${e.slug}  ${e.name ?? ''}`)
       }
+      break
+    }
+    case 'community': {
+      const client = createClient()
+      const profile = await client.getMyProfile()
+      await mountCommunity(profile)
       break
     }
     case 'docs':

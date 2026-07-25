@@ -36,6 +36,34 @@ export interface AssetUpload {
   data: string
 }
 
+export interface MyEffect {
+  id: number
+  name: string
+  prompt: string
+  likes: number
+  coins: number
+  favorites: number
+  remixes: number
+  uses: number
+  createdAt: string
+}
+
+/** 当前登录用户的弹幕社区资料：资料 + 社区汇总 + 已发布作品（含各项互动数据）。 */
+export interface MyProfile {
+  name: string
+  displayName: string
+  avatarHue: string
+  bio: string
+  joinedAt: string
+  followers: number
+  following: number
+  totalLikes: number
+  totalCoins: number
+  totalFavorites: number
+  totalRemixes: number
+  effects: MyEffect[]
+}
+
 export interface CreateVersionInput {
   version: string
   entry: string
@@ -55,6 +83,7 @@ interface FetchInit {
 export interface ApiClient {
   baseUrl: string
   me(): Promise<{ email: string; id: number }>
+  getMyProfile(): Promise<MyProfile>
   listEffects(): Promise<EffectDto[]>
   findBySlug(slug: string): Promise<EffectDto | null>
   createEffect(input: { slug: string; name: string }): Promise<EffectDto>
@@ -102,6 +131,34 @@ export function createClient(baseUrlOpt?: string): ApiClient {
     async me() {
       const { user } = await call<{ user: { email: string; id: number } }>('/api/auth/me')
       return user
+    },
+    async getMyProfile() {
+      // AuthUserDto 含 name(handle)；用它取自己的完整社区资料。
+      const { user } = await call<{ user: { name: string } }>('/api/auth/me')
+      const data = await call<{
+        user: { name: string; displayName: string; avatarHue: string; bio: string; createdAt: string }
+        effects: MyEffect[]
+        totalLikes: number
+        totalCoins: number
+        totalFavorites: number
+        totalRemixes: number
+        followers: number
+        following: number
+      }>(`/api/users/${encodeURIComponent(user.name)}`)
+      return {
+        name: data.user.name,
+        displayName: data.user.displayName,
+        avatarHue: data.user.avatarHue,
+        bio: data.user.bio,
+        joinedAt: data.user.createdAt,
+        followers: data.followers,
+        following: data.following,
+        totalLikes: data.totalLikes,
+        totalCoins: data.totalCoins,
+        totalFavorites: data.totalFavorites,
+        totalRemixes: data.totalRemixes,
+        effects: data.effects,
+      }
     },
     async listEffects() {
       const { effects } = await call<{ effects: EffectDto[] }>('/api/effects')

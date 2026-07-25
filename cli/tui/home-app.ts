@@ -21,6 +21,7 @@ export type HomeAction =
   | 'upload'
   | 'publish'
   | 'effects'
+  | 'community'
   | 'docs'
   | 'quit'
 
@@ -80,6 +81,7 @@ export function buildOptions(state: HomeState, inProject: boolean): MenuOption[]
       { value: 'upload', label: '上传版本', detail: projectDetail ?? 'kdanmu upload', disabled: needProject },
       { value: 'publish', label: '发布到 staging', detail: projectDetail ?? 'kdanmu publish', disabled: needProject },
       { value: 'effects', label: '我的作品', detail: '查看云端 Effect 列表' },
+      { value: 'community', label: '我的弹幕社区状态', detail: 'TUI 演示弹幕与社区数据' },
     )
   }
   opts.push(
