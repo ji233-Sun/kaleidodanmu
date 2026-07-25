@@ -6,11 +6,11 @@ import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
 
 const LINKS = [
-  { href: "/", label: "创作" },
-  { href: "/composer", label: "视频编排" },
-  { href: "/mine", label: "我的作品" },
-  { href: "/square", label: "创作广场" },
-  { href: "/get-started", label: "开始使用" },
+  { href: "/", label: "创作", guest: true },
+  { href: "/composer", label: "视频编排", guest: false },
+  { href: "/mine", label: "我的作品", guest: false },
+  { href: "/square", label: "创作广场", guest: true },
+  { href: "/get-started", label: "开始使用", guest: true },
 ];
 
 export function SiteHeader() {
@@ -35,7 +35,8 @@ export function SiteHeader() {
           <span className="text-lg font-bold tracking-tight text-ink">Kaleido Danmu</span>
         </Link>
         <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-0 sm:w-auto sm:justify-start">
-          {LINKS.map((l) => {
+          {/* 游客只看到可公开浏览的入口；视频编排 / 我的作品登录后显示 */}
+          {(user ? LINKS : LINKS.filter((l) => l.guest)).map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
             return (

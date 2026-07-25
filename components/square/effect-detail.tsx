@@ -7,16 +7,19 @@ import {
   fetchDerivatives,
   fetchSquareEffect,
   postInteraction,
+  postUsedCopy,
   type DerivativeWork,
   type PublishedEffect,
 } from "@/lib/profile";
 import { fetchEffectSource, type ResolvedEffectSource } from "@/lib/effect-source";
 import { newEffectId, upsertEffect } from "@/lib/store";
+import type { KaleidoEffect } from "@/lib/types";
 import { hashString } from "@/lib/random";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
 import { Badge, Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
+import { LoginPrompt } from "@/components/auth/login-prompt";
 
 function fmtNum(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -56,6 +59,8 @@ export function EffectDetail({ id }: { id: string }) {
   const [liked, setLiked] = useState(false);
   const [coined, setCoined] = useState(false);
   const [favorited, setFavorited] = useState(false);
+  /** 游客触发受限操作时的登录提醒 */
+  const [gate, setGate] = useState<{ action: string } | null>(null);
 
   useEffect(() => {
     // 组件以 key=id remount（见 app/square/[id]/page.tsx），effect 内只做异步拉取
@@ -92,10 +97,14 @@ export function EffectDetail({ id }: { id: string }) {
     };
   }, [effect]);
 
-  /** 一键取用：复制作品（与广场卡片行为一致）。 */
+  /** 一键取用：复制作品（与广场卡片行为一致）；登录后同步云端，视频编排才能看到。 */
   const use = useCallback(() => {
     if (!effect) return;
-    upsertEffect({
+    if (!user) {
+      setGate({ action: "使用这个作品" });
+      return;
+    }
+    const copy: KaleidoEffect = {
       id: newEffectId(),
       name: effect.name,
       prompt: effect.prompt,
@@ -104,10 +113,14 @@ export function EffectDetail({ id }: { id: string }) {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       forkedFrom: effect.id,
-    });
+    };
+    upsertEffect(copy);
     void fetch(`/api/effects/${encodeURIComponent(effect.id)}/use`, { method: "POST" });
+    void postUsedCopy(copy)
+      .then((serverId) => upsertEffect({ ...copy, serverId }))
+      .catch(() => {});
     setUsed(true);
-  }, [effect]);
+  }, [effect, user]);
 
   /** 点赞 / 投币 / 收藏：乐观更新（投币不可撤销，对齐 B 站行为） */
   const interact = useCallback(
@@ -312,12 +325,29 @@ export function EffectDetail({ id }: { id: string }) {
             >
               {used ? "✓ 已取用到我的作品" : "使用"}
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => router.push(`/studio?fork=${effect.id}`)}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                if (!user) {
+                  setGate({ action: "在原作基础上二次创作" });
+                  return;
+                }
+                router.push(`/studio?fork=${effect.id}`);
+              }}
+            >
               二创
             </Button>
           </div>
         </aside>
       </div>
+
+      <LoginPrompt
+        open={gate !== null}
+        action={gate?.action ?? ""}
+        next={`/square/${effect.id}`}
+        onClose={() => setGate(null)}
+      />
     </main>
   );
 }

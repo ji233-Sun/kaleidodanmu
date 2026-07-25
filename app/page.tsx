@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { newStudioSessionId } from "@/lib/store";
+import { useSession } from "@/lib/session";
+import { LoginPrompt } from "@/components/auth/login-prompt";
 
 const EXAMPLES = [
   "玻璃碎裂成六瓣，弹幕沿碎片边缘流动",
@@ -14,7 +16,10 @@ const EXAMPLES = [
 
 export default function Home() {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
   const [prompt, setPrompt] = useState("");
+  /** 游客点击生成时待跳转的 Studio 地址（登录后回跳继续创作） */
+  const [gateTarget, setGateTarget] = useState<string | null>(null);
 
   const create = (text: string) => {
     const p = text.trim();
@@ -23,7 +28,12 @@ export default function Home() {
       prompt: p,
       session: newStudioSessionId(),
     });
-    router.push(`/studio?${params.toString()}`);
+    const target = `/studio?${params.toString()}`;
+    if (!sessionLoading && !user) {
+      setGateTarget(target);
+      return;
+    }
+    router.push(target);
   };
 
   return (
@@ -124,6 +134,13 @@ export default function Home() {
           </Link>
         </div>
       </section>
+
+      <LoginPrompt
+        open={gateTarget !== null}
+        action="用 AI 生成自己的弹幕作品"
+        next={gateTarget ?? "/studio"}
+        onClose={() => setGateTarget(null)}
+      />
     </main>
   );
 }

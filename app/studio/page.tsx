@@ -20,6 +20,7 @@ import { hashString } from "@/lib/random";
 import { AgentChat } from "@/components/studio/agent-chat";
 import { CloudPanel } from "@/components/studio/cloud-panel";
 import { KaleidoPlayer } from "@/components/player/kaleido-player";
+import { Spinner } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
 import { DEFAULT_EFFECT_SOURCE, type RuntimeAsset } from "@/lib/runtime/effect";
@@ -39,7 +40,7 @@ type PackagedArtifact =
 
 function StudioInner() {
   const router = useRouter();
-  const { user } = useSession();
+  const { user, loading: sessionLoading } = useSession();
   const params = useSearchParams();
   const prompt = params.get("prompt") ?? undefined;
   const id = params.get("id");
@@ -92,7 +93,7 @@ function StudioInner() {
 
   // 广场二创：进入页面即复制一份作品到“我的作品”
   useEffect(() => {
-    if (!fork || !forkItem || !forkId || forkCreatedRef.current) return;
+    if (!fork || !forkItem || !forkId || !user || forkCreatedRef.current) return;
     forkCreatedRef.current = true;
     upsertEffect({
       id: forkId,
@@ -104,7 +105,7 @@ function StudioInner() {
       updatedAt: Date.now(),
       forkedFrom: forkItem.id,
     });
-  }, [fork, forkItem, forkId]);
+  }, [fork, forkItem, forkId, user]);
 
   const activeId = createdId ?? initialId;
   const effect = activeId ? (effects.find((e) => e.id === activeId) ?? null) : null;
@@ -284,6 +285,43 @@ function StudioInner() {
   };
 
   const notFound = hydrated && ((!!id && !effect) || (!!fork && forkItem === null));
+
+  // 游客：Studio 是 AI 创作工作台，整页拦截并提醒登录/注册（回跳保留当前参数）
+  if (sessionLoading) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-6">
+        <Spinner />
+      </main>
+    );
+  }
+  if (!user) {
+    const query = params.toString();
+    const next = `/studio${query ? `?${query}` : ""}`;
+    return (
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-line bg-card py-20">
+          <p className="text-sm text-ink-2">
+            AI 创作工作台需要登录后使用，登录即可生成、迭代你的弹幕作品
+          </p>
+          <div className="flex gap-2">
+            <Link
+              href={`/login?next=${encodeURIComponent(next)}`}
+              className="rounded-lg bg-bili-pink px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-bili-pink-hover"
+            >
+              去登录 →
+            </Link>
+            <Link
+              href={`/register?next=${encodeURIComponent(next)}`}
+              className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-bili-pink hover:text-bili-pink"
+            >
+              注册账号
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (notFound) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">

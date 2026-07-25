@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetchSquare, postInteraction, type PublishedEffect } from "@/lib/profile";
+import { fetchSquare, postInteraction, postUsedCopy, type PublishedEffect } from "@/lib/profile";
 import { newEffectId, upsertEffect } from "@/lib/store";
+import type { KaleidoEffect } from "@/lib/types";
 import { useSession } from "@/lib/session";
+import { LoginPrompt } from "@/components/auth/login-prompt";
 import { EffectRuntimeThumb } from "@/components/effect-runtime-thumb";
 import { cn } from "@/lib/cn";
 
@@ -21,6 +23,8 @@ export default function SquarePage() {
   const [error, setError] = useState("");
   const [usedIds, setUsedIds] = useState<Set<string>>(new Set());
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  /** 游客触发受限操作时的登录提醒 */
+  const [gate, setGate] = useState<{ action: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,11 +35,15 @@ export default function SquarePage() {
     return () => { cancelled = true; };
   }, []);
 
-  /** 一键取用：复制作品到当前账号的本地草稿。 */
+  /** 一键取用：复制作品到当前账号的本地草稿；登录后同步云端，视频编排才能看到。 */
   const use = useCallback((id: string) => {
+    if (!user) {
+      setGate({ action: "使用这个作品" });
+      return;
+    }
     const item = items.find((i) => i.id === id);
     if (!item) return;
-    upsertEffect({
+    const copy: KaleidoEffect = {
       id: newEffectId(),
       name: item.name,
       prompt: item.prompt,
@@ -44,10 +52,14 @@ export default function SquarePage() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       forkedFrom: item.id,
-    });
+    };
+    upsertEffect(copy);
     void apiUse(id);
+    void postUsedCopy(copy)
+      .then((serverId) => upsertEffect({ ...copy, serverId }))
+      .catch(() => {});
     setUsedIds((prev) => new Set(prev).add(id));
-  }, [items]);
+  }, [items, user]);
 
   const like = useCallback((id: string) => {
     if (!user) {
@@ -162,7 +174,13 @@ export default function SquarePage() {
                     {used ? "✓ 已取用" : "使用"}
                   </button>
                   <button
-                    onClick={() => router.push(`/studio?fork=${item.id}`)}
+                    onClick={() => {
+                      if (!user) {
+                        setGate({ action: "在原作基础上二次创作" });
+                        return;
+                      }
+                      router.push(`/studio?fork=${item.id}`);
+                    }}
                     className="rounded-md bg-fill px-3 py-1 text-xs text-ink-2 transition-colors hover:text-bili-pink"
                   >
                     二创
@@ -178,6 +196,13 @@ export default function SquarePage() {
           );
         })}
       </div>}
+
+      <LoginPrompt
+        open={gate !== null}
+        action={gate?.action ?? ""}
+        next="/square"
+        onClose={() => setGate(null)}
+      />
     </main>
   );
 }
