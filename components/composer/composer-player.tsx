@@ -49,8 +49,8 @@ interface ComposerPlayerProps {
 
 /**
  * 视频编排播放器：composer-demo 演示视频 + 特效沙箱 + 经典弹幕层。
- * 视频模式一次性拉全量弹幕按时间轴调度，片段内弹幕进特效、片段外走经典弹幕；
- * 直播模式走 SSE 实时帧、视频循环播放，选中的万花筒实时生效（未选中则经典弹幕）。
+ * 视频模式一次性拉全量弹幕，待弹幕就绪后才起播、按时间轴调度，片段内弹幕进特效、
+ * 片段外走经典弹幕；直播模式走 SSE 实时帧、视频循环播放，选中的万花筒实时生效（未选中则经典弹幕）。
  */
 export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerProps>(
   function ComposerPlayer(
@@ -237,7 +237,13 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           return res.json() as Promise<ComposerVideoDanmakuResponse>;
         })
         .then(({ elems }) => {
-          vodEventsRef.current = elems.map(vodElemToEvent);
+          const events = elems.map(vodElemToEvent);
+          vodEventsRef.current = events;
+          // 视频可能已被手动起播：静默快进索引到播放头，避免积压弹幕一帧内洪峰补发
+          const nowMs = (videoRef.current?.currentTime ?? 0) * 1000;
+          let idx = 0;
+          while (idx < events.length && (events[idx].videoTimeMs ?? 0) <= nowMs) idx++;
+          vodIdxRef.current = idx;
           setVodCount(elems.length);
           setVodState("ready");
         })
@@ -311,7 +317,6 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       v.addEventListener("seeked", onBufferEnd);
       // 兜底解冻：真卡顿时 timeupdate 不会触发，视频在走帧则不该处于缓冲态
       v.addEventListener("timeupdate", onBufferEnd);
-      v.play().catch(() => {});
       return () => {
         v.removeEventListener("loadedmetadata", onMeta);
         v.removeEventListener("durationchange", onMeta);
@@ -327,16 +332,29 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
       };
     }, [onDuration, onPlayingChange]);
 
+    // 等当前模式的弹幕就绪后才起播（视频模式等全量时间轴拉完，直播等 SSE 连上），
+    // 避免边播边加载导致开播段弹幕缺失或迟到弹幕洪峰；加载失败也放行，不让视频永远卡住。
+    useEffect(() => {
+      const state = mode === "video" ? vodState : liveState;
+      if (state === "idle" || state === "loading") return;
+      videoRef.current?.play().catch(() => {});
+    }, [mode, vodState, liveState]);
+
+    /** 弹幕尚未就绪：强制等待（参考 Studio「Agent 正在生成」的占位形态），加载完成前不允许起播。 */
+    const danmakuLoading =
+      mode === "video" ? vodState !== "ready" && vodState !== "error" : liveState !== "ready" && liveState !== "error";
+
     const togglePlay = useCallback(() => {
       const v = videoRef.current;
       if (!v) return;
       if (v.paused) {
+        if (danmakuLoading) return; // 弹幕未就绪，强制等待
         if (v.ended && modeRef.current === "video") v.currentTime = 0;
         v.play().catch(() => {});
       } else {
         v.pause();
       }
-    }, []);
+    }, [danmakuLoading]);
 
     useImperativeHandle(ref, () => ({
       seek(ms) {
@@ -422,16 +440,18 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           )}
         </div>
 
-        {/* 缓冲指示：视频加载/卡顿期间弹幕同步冻结 */}
-        {buffering && (
+        {/* 加载指示：弹幕未就绪 / 视频缓冲期间强制等待，弹幕同步冻结 */}
+        {(buffering || danmakuLoading) && (
           <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-            <span className="text-xs text-white/70">视频加载中…</span>
+            <span className="text-xs text-white/70">
+              {danmakuLoading ? "弹幕加载中，就绪后自动播放…" : "视频加载中…"}
+            </span>
           </div>
         )}
 
         {/* 暂停大图标 */}
-        {!playing && !buffering && (
+        {!playing && !buffering && !danmakuLoading && (
           <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
             <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
               <path d="M8 5v14l11-7z" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AdeAgentTurnRequestSchema } from "@/lib/ade/protocol";
+import { ADE_MAX_TURN_MESSAGES, AdeAgentTurnRequestSchema, trimTurnMessages, type AdeAgentMessage } from "@/lib/ade/protocol";
 import { ADE_GUIDE_FILE } from "@/lib/ade/guide";
 import { BrowserEffectProject } from "@/lib/ade/project";
 import { DEFAULT_EFFECT_SOURCE, rewriteEffectImports, validateEffectSource } from "@/lib/runtime/effect";
@@ -32,6 +32,46 @@ describe("ADE request contract", () => {
       { role: "assistant", content: longText, toolCalls: [{ id: "c1", name: "validate", arguments: "{}" }] },
       { role: "tool", toolCallId: "c1", content: longText },
     ] })).not.toThrow();
+  });
+});
+
+describe("ADE turn sliding window", () => {
+  it("keeps the user instruction and never orphans tool messages", () => {
+    const messages: AdeAgentMessage[] = [{ role: "user", content: "做一个效果" }];
+    for (let i = 0; i < 20; i += 1) {
+      messages.push({
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          { id: `a${i}`, name: "read_file", arguments: "{}" },
+          { id: `b${i}`, name: "validate", arguments: "{}" },
+        ],
+      });
+      messages.push({ role: "tool", toolCallId: `a${i}`, content: "x" });
+      messages.push({ role: "tool", toolCallId: `b${i}`, content: "y" });
+    }
+    trimTurnMessages(messages);
+    expect(messages.length).toBeLessThanOrEqual(ADE_MAX_TURN_MESSAGES);
+    expect(messages[0]).toEqual({ role: "user", content: "做一个效果" });
+    // 每条 tool 回执的父 assistant 都必须还在窗口内（否则上游 400）
+    const callIds = new Set(
+      messages.flatMap((m) => (m.role === "assistant" ? m.toolCalls.map((c) => c.id) : [])),
+    );
+    for (const m of messages) {
+      if (m.role === "tool") expect(callIds.has(m.toolCallId)).toBe(true);
+    }
+    // 窗口内容仍满足服务端请求契约
+    expect(() => AdeAgentTurnRequestSchema.parse({ messages })).not.toThrow();
+  });
+
+  it("keeps retry assistant notes as independent groups", () => {
+    const messages: AdeAgentMessage[] = [{ role: "user", content: "做一个效果" }];
+    for (let i = 0; i < ADE_MAX_TURN_MESSAGES + 5; i += 1) {
+      messages.push({ role: "assistant", content: `note ${i}`, toolCalls: [] });
+    }
+    trimTurnMessages(messages);
+    expect(messages.length).toBeLessThanOrEqual(ADE_MAX_TURN_MESSAGES);
+    expect(messages[1]?.role).toBe("assistant");
   });
 });
 

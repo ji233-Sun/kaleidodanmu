@@ -34,11 +34,17 @@ const AgentMessageSchema = z.discriminatedUnion('role', [
 ])
 
 /**
+ * 单轮请求的消息条数上限。这不是 Agent 的轮次限制：浏览器端循环不限轮次，
+ * 靠滑动窗口把每次请求控制在该容量内；此处只是代理转发的防滥用天花板。
+ */
+export const ADE_MAX_TURN_MESSAGES = 64
+
+/**
  * 每次请求只承载一个用户意图和该轮工具回执，不能作为任意多轮聊天 API 使用。
  * Agent 的工程状态保留在浏览器虚拟文件系统，不从服务端读取。
  */
 export const AdeAgentTurnRequestSchema = z
-  .object({ messages: z.array(AgentMessageSchema).min(1).max(14) })
+  .object({ messages: z.array(AgentMessageSchema).min(1).max(ADE_MAX_TURN_MESSAGES) })
   .strict()
   .superRefine(({ messages }, ctx) => {
     if (messages[0]?.role !== 'user') {
@@ -61,6 +67,19 @@ export const AdeAgentTurnResponseSchema = z
       .strict(),
   })
   .strict()
+
+/**
+ * 滑动上下文窗口：保留首条 user 指令，超限时整体丢弃最早的 assistant+tool 组。
+ * 必须在 assistant 边界下刀，否则会产生孤儿 tool 消息（上游对没有 toolCalls
+ * 父消息的 tool 回执直接 400）。工程状态在浏览器文件里，模型可随时 read_file 找回上下文。
+ */
+export function trimTurnMessages(messages: AdeAgentMessage[]): void {
+  while (messages.length > ADE_MAX_TURN_MESSAGES && messages.length > 1) {
+    let next = 2 // messages[0] 是 user，messages[1] 是最早一组的 assistant
+    while (next < messages.length && messages[next].role === 'tool') next += 1
+    messages.splice(1, next - 1)
+  }
+}
 
 export type AdeAgentMessage = z.infer<typeof AgentMessageSchema>
 export type AdeAgentTurnResponse = z.infer<typeof AdeAgentTurnResponseSchema>

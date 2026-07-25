@@ -74,7 +74,13 @@ export function KaleidoPlayer({
         return response.json() as Promise<VodDanmakuReply>;
       })
       .then(({ elems }) => {
-        setVodEvents(elems.map(vodElemToEvent));
+        const events = elems.map(vodElemToEvent);
+        // 视频可能已被手动起播：静默快进索引到播放头，避免过期弹幕一帧内全量补发
+        const nowMs = (videoRef.current?.currentTime ?? 0) * 1000;
+        let idx = 0;
+        while (idx < events.length && (events[idx].videoTimeMs ?? 0) <= nowMs) idx++;
+        vodIdxRef.current = idx;
+        setVodEvents(events);
         setVodState("ready");
       })
       .catch((error: unknown) => {
@@ -174,7 +180,6 @@ export function KaleidoPlayer({
     video.addEventListener("playing", onBufferEnd);
     video.addEventListener("canplay", onBufferEnd);
     video.addEventListener("seeked", onBufferEnd);
-    if (autoPlay) video.play().catch(() => {});
     return () => {
       video.removeEventListener("timeupdate", onTime);
       video.removeEventListener("durationchange", onTime);
@@ -188,15 +193,29 @@ export function KaleidoPlayer({
       video.removeEventListener("canplay", onBufferEnd);
       video.removeEventListener("seeked", onBufferEnd);
     };
-  }, [autoPlay]);
+  }, []);
+
+  // 等当前数据源的弹幕就绪后才起播（点播等全量时间轴拉完，直播等 SSE 连上），
+  // 避免边播边加载导致开播段弹幕缺失或迟到弹幕洪峰；加载失败也放行，不让视频永远卡住。
+  useEffect(() => {
+    if (!autoPlay) return;
+    const state = source === "vod" ? vodState : liveState;
+    if (state === "loading") return;
+    videoRef.current?.play().catch(() => {});
+  }, [autoPlay, source, vodState, liveState]);
+
+  /** 弹幕尚未就绪：强制等待（参考 Studio「Agent 正在生成」的占位形态），加载完成前不允许起播。 */
+  const danmakuLoading = source === "vod" ? vodState === "loading" : liveState === "loading";
 
   /* ---------- controls ---------- */
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) v.play().catch(() => {});
-    else v.pause();
-  }, []);
+    if (v.paused) {
+      if (danmakuLoading) return; // 弹幕未就绪，强制等待
+      v.play().catch(() => {});
+    } else v.pause();
+  }, [danmakuLoading]);
 
   const wakeUI = useCallback(() => {
     setShowUI(true);
@@ -348,16 +367,18 @@ export function KaleidoPlayer({
         )}
       </div>
 
-      {/* 缓冲指示：视频加载/卡顿期间弹幕同步冻结 */}
-      {buffering && (
+      {/* 加载指示：弹幕未就绪 / 视频缓冲期间强制等待，弹幕同步冻结 */}
+      {(buffering || danmakuLoading) && (
         <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
           <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-          <span className="text-xs text-white/70">视频加载中…</span>
+          <span className="text-xs text-white/70">
+            {danmakuLoading ? "弹幕加载中，就绪后自动播放…" : "视频加载中…"}
+          </span>
         </div>
       )}
 
       {/* 暂停大图标 */}
-      {!playing && !buffering && (
+      {!playing && !buffering && !danmakuLoading && (
         <div className="pointer-events-none absolute top-1/2 left-1/2 z-7 flex h-18 w-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45">
           <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
             <path d="M8 5v14l11-7z" />

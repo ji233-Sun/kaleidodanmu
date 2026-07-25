@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Recipe } from "@/lib/types";
 import { BrowserEffectProject } from "@/lib/ade/project";
-import type { AdeAgentMessage, AdeAgentTurnResponse, AdeToolCall } from "@/lib/ade/protocol";
+import { trimTurnMessages, type AdeAgentMessage, type AdeAgentTurnResponse, type AdeToolCall } from "@/lib/ade/protocol";
 import type { AdeChatMessage, AdeSessionPayload } from "@/types";
 import { ApiError, apiFetch } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -16,7 +16,6 @@ import { Markdown } from "@/components/ui/markdown";
 type ChatMsg = AdeChatMessage;
 type ToolMsg = Extract<AdeChatMessage, { role: "tool" }>;
 
-const MAX_AGENT_ROUNDS = 8;
 /** 服务端历史拉取的稳定键；同一会话在刷新前后保持一致。 */
 const SESSION_PATH = (targetKey: string) =>
   `/api/ade/session/${encodeURIComponent(targetKey)}`;
@@ -206,9 +205,10 @@ export function AgentChat({
       // 服务端只会保存 user/assistant 文本；toolCalls 仅用于本轮驱动 LLM。
       const messages: AdeAgentMessage[] = buildTurnMessages(instruction);
       let emptyStreak = 0;
-      let lastRoundApplied = false;
       try {
-        for (let round = 0; round < MAX_AGENT_ROUNDS; round += 1) {
+        // 无轮次上限：模型以「不再发起工具调用」为完成信号；上下文靠滑动窗口控制。
+        for (;;) {
+          trimTurnMessages(messages);
           const { message } = await apiFetch<AdeAgentTurnResponse>(
             "/api/llm/proxy",
             { method: "POST", json: { messages } },
@@ -244,7 +244,6 @@ export function AgentChat({
             reasoningSignature: message.reasoningSignature,
           };
           messages.push(assistantEntry);
-          let roundApplied = false;
           for (const call of message.toolCalls) {
             const toolMsg: ToolMsg = {
               role: "tool",
@@ -263,7 +262,6 @@ export function AgentChat({
               ),
             );
             if (execution.preview) {
-              roundApplied = true;
               onApply(
                 execution.preview.recipe,
                 execution.preview.name,
@@ -281,14 +279,7 @@ export function AgentChat({
               content: execution.result,
             });
           }
-          lastRoundApplied = roundApplied;
         }
-        push({
-          role: "assistant",
-          text: lastRoundApplied
-            ? "生成完成，预览已更新。还想调整哪里，直接告诉我。"
-            : "本轮工具调用次数已达到上限；请继续描述下一步调整。",
-        });
       } catch (error) {
         const text =
           error instanceof ApiError && error.status === 401
