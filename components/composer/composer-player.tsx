@@ -399,11 +399,12 @@ export const ComposerPlayer = forwardRef<ComposerPlayerHandle, ComposerPlayerPro
           <ClassicDanmakuLayer ref={classicRef} playing={playing && !buffering} />
         </div>
 
-        {/* 特效层（片段内），不拦截指针，点击穿透到视频用于播放/暂停；视频缓冲时冻结，片段外冻结并隐藏 */}
+        {/* 特效层（片段内）：生效时接收指针，供 Effect 的 onPointer 交互（如弹幕闪避指针）；
+            未生效时隐藏并放行指针，使点击穿透到视频用于播放/暂停。视频缓冲时冻结。 */}
         <div
           className={cn(
-            "pointer-events-none absolute inset-0 z-6",
-            !sandboxActive && "invisible",
+            "absolute inset-0 z-6",
+            !sandboxActive && "pointer-events-none invisible",
           )}
         >
           <EffectSandbox
